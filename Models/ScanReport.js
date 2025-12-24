@@ -2,14 +2,126 @@ import mongoose from "mongoose";
 
 const scanReportSchema = new mongoose.Schema(
   {
-    patient: { type: mongoose.Schema.Types.ObjectId, ref: "Patient", required: true },
-    doctor: { type: mongoose.Schema.Types.ObjectId, ref: "Doctor", default: null },
-    type: { type: String },
-    description: { type: String },
-    pdfFile: { type: String }, // path or URL to generated PDF
+    /* ================= BASIC RELATIONS ================= */
+    patient: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: "Patient", 
+      required: true 
+    },
+
+    // Doctor who requested or reviewed the scan
+    doctor: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: "Doctor", 
+      default: null 
+    },
+
+    /* ================= SCAN DETAILS ================= */
+    // MRI, CT, X-Ray, Blood Test, Urine Test, ECG...
+    type: { 
+      type: String, 
+      required: true 
+    },
+
+    // Chest MRI, Brain CT, Blood Sugar Test...
+    scanName: {
+      type: String,
+      required: true
+    },
+
+    // Brief clinical description
+    description: { 
+      type: String 
+    },
+
+    // Reason for scan
+    indication: {
+      type: String
+    },
+
+    /* ================= RESULTS ================= */
+    // Summary / Impression
+    impression: {
+      type: String
+    },
+
+    // Detailed findings
+    findings: {
+      type: String
+    },
+
+    // Normal / Abnormal / Critical
+    resultStatus: {
+      type: String,
+      enum: ["Normal", "Abnormal", "Critical", "Pending"],
+      default: "Pending"
+    },
+
+    /* ================= FILES ================= */
+    // PDF report file
+    pdfFile: { 
+      type: String, 
+      default: null 
+    },
+
+    // Scan images (X-ray, MRI slices, etc.)
+    images: [
+      {
+        url: String,
+        public_id: String
+      }
+    ],
+
+    /* ================= LAB / HOSPITAL ================= */
+    labName: {
+      type: String
+    },
+
+    technicianName: {
+      type: String
+    },
+
+    /* ================= DATES ================= */
+    scanDate: {
+      type: Date,
+      required: true
+    },
+
+    reportGeneratedDate: {
+      type: Date
+    },
+
+    /* ================= PAYMENT ================= */
+    cost: {
+      type: Number,
+      default: 0
+    },
+
+    paymentStatus: {
+      type: String,
+      enum: ["Paid", "Unpaid", "Insurance", "Free"],
+      default: "Unpaid"
+    },
+
+    /* ================= AUDIT ================= */
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    },
+
+    isVerified: {
+      type: Boolean,
+      default: false
+    },
+
+    verifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Doctor",
+      default: null
+    }
   },
   { timestamps: true }
 );
 
-const ScanReport = mongoose.models.ScanReport || mongoose.model("ScanReport", scanReportSchema);
-export default ScanReport;
+export default mongoose.models.ScanReport ||
+  mongoose.model("ScanReport", scanReportSchema);

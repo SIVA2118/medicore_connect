@@ -1,26 +1,70 @@
 import express from "express";
+import { protect } from "../Middleware/auth.js";
+import { authorizeRoles } from "../Middleware/role.js";
+
 import {
-  createScanner,
   loginScanner,
   createScanReport,
   getScanReports,
+  getScanReportById,
+  updateScanReport,
+  deleteScanReport,
+  verifyScanReport
 } from "../Controllers/scannerController.js";
-
-import { protect } from "../Middleware/auth.js";
-import { authorizeRoles } from "../middleware/role.js";
 
 const router = express.Router();
 
-// Only admin can create scanner user
-router.post("/create", protect, authorizeRoles("admin"), createScanner);
-
-// scanner login
+/* ================= AUTH ================= */
 router.post("/login", loginScanner);
 
-// create a scan report (scanner or doctor can create)
-router.post("/report", protect, authorizeRoles("scanner", "doctor"), createScanReport);
+/* ================= SCAN REPORT CRUD ================= */
 
-// scanner can view reports
-router.get("/reports", protect, authorizeRoles("scanner", "admin", "biller"), getScanReports);
+// CREATE scan report (Scanner)
+router.post(
+  "/scan-report",
+  protect,
+  authorizeRoles("scanner"),
+  createScanReport
+);
+
+// READ all scan reports
+router.get(
+  "/scan-reports",
+  protect,
+  authorizeRoles("scanner", "doctor", "admin"),
+  getScanReports
+);
+
+// READ single scan report
+router.get(
+  "/scan-report/:id",
+  protect,
+  authorizeRoles("scanner", "doctor", "admin"),
+  getScanReportById
+);
+
+// UPDATE scan report (Scanner)
+router.put(
+  "/scan-report/:id",
+  protect,
+  authorizeRoles("scanner"),
+  updateScanReport
+);
+
+// VERIFY scan report (Doctor only)
+router.put(
+  "/scan-report/verify/:id",
+  protect,
+  authorizeRoles("doctor"),
+  verifyScanReport
+);
+
+// DELETE scan report (Scanner / Admin)
+router.delete(
+  "/scan-report/:id",
+  protect,
+  authorizeRoles("scanner", "admin"),
+  deleteScanReport
+);
 
 export default router;

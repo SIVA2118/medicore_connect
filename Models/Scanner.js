@@ -2,14 +2,35 @@ import mongoose from "mongoose";
 
 const scannerSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true },
-    email: { type: String, unique: true, required: true },
-    password: { type: String, required: true },
+    name: {
+      type: String,
+      required: true,
+      trim: true
+    },
+
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      index: true
+    },
+
+    password: {
+      type: String,
+      required: true,
+      select: false   // 🔐 hide password
+    },
+
     department: String,
-    role: { type: String, default: "scanner" },
+
+    role: {
+      type: String,
+      default: "scanner"
+    }
   },
   { timestamps: true }
 );
 
-export default mongoose.models.Scanner || 
+export default mongoose.models.Scanner ||
   mongoose.model("Scanner", scannerSchema);

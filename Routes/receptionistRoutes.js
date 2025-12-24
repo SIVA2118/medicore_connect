@@ -1,26 +1,63 @@
 import express from "express";
-import { loginReceptionist, createPatient, getAllPatients } from "../controllers/receptionistController.js";
-import { loginDoctor } from "../controllers/doctorController.js"; // Only login if needed
+import { protect } from "../Middleware/auth.js";
+import { authorizeRoles } from "../Middleware/role.js";
 
-import { protect } from "../middleware/auth.js";
-import { authorizeRoles } from "../middleware/role.js";
-import { upload } from "../middleware/upload.js"; // Multer for patient photos
+import {
+  loginReceptionist,
+  createPatient,
+  getAllPatients,
+
+  // CRUD (NEW)
+  getPatientById,
+  updatePatient,
+  deletePatient,
+} from "../Controllers/receptionistController.js";
 
 const router = express.Router();
 
-// ---------------- Receptionist Auth ----------------
+/* ================= AUTH ================= */
 router.post("/login", loginReceptionist);
 
-// ---------------- Create Patient with Photo ----------------
+/* ================= PATIENT CRUD ================= */
+
+// CREATE
 router.post(
   "/create-patient",
   protect,
-  authorizeRoles("admin", "receptionist"),
-  upload.single("photo"),
+  authorizeRoles("receptionist"),
   createPatient
 );
 
-// ---------------- Get All Patients ----------------
-router.get("/patients", protect, authorizeRoles("admin", "receptionist"), getAllPatients);
+// READ ALL
+router.get(
+  "/all-patients",
+  protect,
+  authorizeRoles("receptionist"),
+  getAllPatients
+);
+
+// READ ONE
+router.get(
+  "/patient/:patientId",
+  protect,
+  authorizeRoles("receptionist"),
+  getPatientById
+);
+
+// UPDATE
+router.put(
+  "/patient/:patientId",
+  protect,
+  authorizeRoles("receptionist"),
+  updatePatient
+);
+
+// DELETE
+router.delete(
+  "/patient/:patientId",
+  protect,
+  authorizeRoles("receptionist"),
+  deletePatient
+);
 
 export default router;

@@ -7,6 +7,8 @@ import {
   generateBillPDF,
   getBills,      // ← THIS
   sendBillToPatient,
+  updateBill,
+  deleteBill
 } from "../Controllers/billerController.js";
 
 
@@ -33,6 +35,26 @@ router.get(
   protect,
   authorizeRoles("biller"),
   getBills
+);
+
+// -------------------------------------------------
+// UPDATE BILL
+// -------------------------------------------------
+router.put(
+  "/bill/:billId",
+  protect,
+  authorizeRoles("biller"),
+  updateBill
+);
+
+// -------------------------------------------------
+// DELETE BILL
+// -------------------------------------------------
+router.delete(
+  "/bill/:billId",
+  protect,
+  authorizeRoles("biller"),
+  deleteBill
 );
 
 router.post(
