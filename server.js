@@ -14,12 +14,19 @@ dotenv.config();
 
 const app = express();
 
-/* ================= MIDDLEWARE ================= */
+/* ================= DATABASE & MIDDLEWARE ================= */
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error("Database connection failed:", error);
+    res.status(500).json({ error: "Database Connection Error" });
+  }
+});
+
 app.use(express.json());
 app.use(cors());
-
-/* ================= DATABASE ================= */
-await connectDB();
 
 /* ================= ROUTES ================= */
 app.use("/api/admin", adminRoutes);
@@ -37,6 +44,7 @@ if (process.env.NODE_ENV !== "production") {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => {
     console.log(`🚀 Local server running on port ${PORT}`);
+    connectDB(); // Ensure connectDB is called here for local development startup log
   });
 }
 
