@@ -28,10 +28,16 @@ app.use("/api/doctor", doctorRoutes);
 app.use("/api/scanner", scannerRoutes);
 app.use("/api/biller", billerRoutes);
 
-/* ================= HEALTH CHECK ================= */
 app.get("/", (req, res) => {
   res.send("🏥 Hospital Management API Running");
 });
 
+/* ================= LOCAL SERVER ================= */
+if (process.env.NODE_ENV !== "production") {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`🚀 Local server running on port ${PORT}`);
+  });
+}
 
 export default app;
