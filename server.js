@@ -42,3 +42,5 @@ app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 
 
 app.use("/pdfs", express.static("pdfs"));
+
+export default app;
