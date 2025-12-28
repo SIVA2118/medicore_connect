@@ -1,10 +1,11 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Doctor from "../Models/Doctor.js";
-import Patient from "../models/Patient.js";
-import Report from "../models/Report.js";
+import Patient from "../Models/Patient.js";
+import Report from "../Models/Report.js";
 import Bill from "../Models/Bill.js";
-import Prescription from "../models/Prescription.js";
+import Prescription from "../Models/Prescription.js";
+import ScanReport from "../Models/ScanReport.js";
 
 // -------------------------------------------------------
 // Doctor Login
@@ -140,30 +141,59 @@ export const getDoctorPatients = async (req, res) => {
   try {
     const patients = await Patient.find({
       assignedDoctor: req.user.id,
-    }).populate("lastReport");
+    })
+      .populate("assignedDoctor", "name specialization")
+      .populate("lastReport")
+      .populate("reports")
+      .lean();
 
-    res.json(patients);
+    return res.status(200).json(patients);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching patients", error });
+    return res.status(500).json({
+      message: "Error fetching patients",
+      error: error.message,
+    });
   }
 };
-
 // -------------------------------------------------------
 // Get Single Patient (Doctor Scope)
+// -------------------------------------------------------
+// -------------------------------------------------------
+// Get Single Patient (Doctor Scope) - With History
 // -------------------------------------------------------
 export const getPatientById = async (req, res) => {
   try {
     const { patientId } = req.params;
+    console.log("Fetching patient with Scan History:", patientId); // Debug Log & Force Restart
 
-    const patient = await Patient.findById(patientId)
-      .populate("lastReport")
-      .populate("assignedDoctor", "name specialization");
+    // Fetch Patient and Full History Independently in Parallel
+    const [patient, reports, prescriptions, scanReports] = await Promise.all([
+      Patient.findById(patientId)
+        .populate("lastReport")
+        .populate("assignedDoctor", "name specialization")
+        .select("-reports")
+        .lean(),
+      Report.find({ patient: patientId })
+        .populate("doctor", "name")
+        .sort({ date: -1 })
+        .lean(),
+      Prescription.find({ patient: patientId })
+        .populate("doctor", "name")
+        .sort({ createdAt: -1 })
+        .lean(),
+      ScanReport.find({ patient: patientId })
+        .populate("doctor", "name")
+        .populate("assignedTo", "name")
+        .sort({ createdAt: -1 })
+        .lean()
+    ]);
 
     if (!patient)
       return res.status(404).json({ message: "Patient not found" });
 
-    res.json(patient);
+    res.json({ ...patient, reports, prescriptions, scanReports });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Error fetching patient", error });
   }
 };
@@ -229,7 +259,7 @@ export const createReport = async (req, res) => {
       followUpDate: followUpDate || null,
       additionalNotes: additionalNotes || "",
       doctorSignature: doctorSignature || "",
-      
+
       date: new Date(),
     });
 
@@ -321,6 +351,31 @@ export const deleteReport = async (req, res) => {
 
 
 // -------------------------------------------------------
+// Get Scan Report By ID (For Doctor View)
+// -------------------------------------------------------
+export const getScanReportById = async (req, res) => {
+  try {
+    const { reportId } = req.params;
+
+    const report = await ScanReport.findById(reportId)
+      .populate("patient", "name age gender mrn profileImage")
+      .populate("doctor", "name specialization profileImage")
+      .populate("verifiedBy", "name profileImage")
+      .populate("assignedTo", "name department email")
+      .lean();
+
+    if (!report)
+      return res.status(404).json({ success: false, message: "Scan Report not found" });
+
+    res.json({ success: true, report });
+  } catch (error) {
+    console.error("Error fetching scan report:", error);
+    res.status(500).json({ success: false, message: "Error fetching scan report", error });
+  }
+};
+
+
+// -------------------------------------------------------
 // Create Prescription (Auto linked with Bill)
 // -------------------------------------------------------
 export const createPrescription = async (req, res) => {
@@ -350,7 +405,7 @@ export const createPrescription = async (req, res) => {
         amount: 0,
         prescription: null,
         report: null,
-        doctorReports: [],
+        billItems: [], // Initialize empty items
         paid: false,
       });
     }
@@ -379,7 +434,7 @@ export const createPrescription = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Error creating prescription",
+      message: `Error creating prescription: ${error.message}`,
       error: error.message,
     });
   }
@@ -465,5 +520,57 @@ export const reassignPatient = async (req, res) => {
     res.json({ message: "Patient successfully reassigned", patient });
   } catch (error) {
     res.status(500).json({ message: "Error reassigning patient", error });
+  }
+};
+
+// -------------------------------------------------------
+// Get All Doctors (For Reassignment)
+// -------------------------------------------------------
+export const getAllDoctors = async (req, res) => {
+  try {
+    const doctors = await Doctor.find({ _id: { $ne: req.user.id } }) // Exclude self
+      .select("name specialization availability");
+    res.json(doctors);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching doctors", error });
+  }
+};
+
+// -------------------------------------------------------
+// Get Dashboard Stats
+// -------------------------------------------------------
+export const getDashboardStats = async (req, res) => {
+  try {
+    const doctorId = req.user.id;
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Run independent queries in parallel
+    const [
+      totalPatients,
+      totalReports,
+      totalPrescriptions,
+      todayVisits
+    ] = await Promise.all([
+      Patient.countDocuments({ assignedDoctor: doctorId }).lean(),
+      Report.countDocuments({ doctor: doctorId }).lean(),
+      Prescription.countDocuments({ doctor: doctorId }).lean(),
+      Patient.find({
+        assignedDoctor: doctorId,
+        "opdDetails.lastVisitDate": { $gte: startOfDay, $lte: endOfDay }
+      }).select("name opdDetails.lastVisitDate").lean()
+    ]);
+
+    res.json({
+      totalPatients,
+      totalReports,
+      totalPrescriptions,
+      todayVisits
+    });
+  } catch (error) {
+    console.error("Stats Error:", error);
+    res.status(500).json({ message: "Error fetching dashboard stats", error });
   }
 };

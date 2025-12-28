@@ -10,9 +10,14 @@ import {
   getUserById,
   updateUser,
   deleteUser,
+  getDashboardStats,
+  getAllClinicalReports,
+  getPatientDetails,
 } from "../Controllers/adminController.js";
 
-import { protect } from "../middleware/auth.js";
+import { getAllPatients } from "../Controllers/receptionistController.js";
+
+import { protect } from "../Middleware/auth.js";
 
 const router = express.Router();
 
@@ -28,6 +33,10 @@ router.post("/create-biller", protect, createBiller);
 
 /* ================= READ ================= */
 router.get("/all-users", protect, getAllUsers);
+router.get("/dashboard-stats", protect, getDashboardStats);
+router.get("/clinical-reports", protect, getAllClinicalReports);
+router.get("/patient/:patientId", protect, getPatientDetails);
+router.get("/patients", protect, getAllPatients);
 router.get("/:role/:id", protect, getUserById);
 
 /* ================= UPDATE ================= */

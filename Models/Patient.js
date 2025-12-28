@@ -2,56 +2,42 @@ import mongoose from "mongoose";
 
 const patientSchema = new mongoose.Schema(
   {
-    // -----------------------
-    // BASIC DETAILS
-    // -----------------------
     name: { type: String, required: true },
+    mrn: {
+      type: String,
+      index: true,
+      unique: true,
+      sparse: true,
+      default: () => "MRN-" + Math.floor(100000 + Math.random() * 900000)
+    },
     age: Number,
     gender: { type: String, enum: ["Male", "Female", "Other"] },
     dob: Date,
     phone: { type: String, required: true },
     email: String,
+    profileImage: String,
 
-    // -----------------------
-    // ADDRESS
-    // -----------------------
     address: {
       line1: String,
       line2: String,
       city: String,
       state: String,
-      pincode: String
+      pincode: String,
     },
 
-    // -----------------------
-    // MEDICAL DETAILS
-    // -----------------------
     bloodGroup: String,
-    allergies: { type: [String], default: [] },
-    existingConditions: { type: [String], default: [] },
-    currentMedications: { type: [String], default: [] },
+    allergies: [String],
+    existingConditions: [String],
+    currentMedications: [String],
 
-    // -----------------------
-    // EMERGENCY CONTACT
-    // -----------------------
     emergencyContact: {
       name: String,
       relation: String,
-      phone: String
+      phone: String,
     },
 
-    // -----------------------
-    // PATIENT TYPE (OPD / IPD)
-    // -----------------------
-    patientType: {
-      type: String,
-      enum: ["OPD", "IPD"],
-      default: "OPD"
-    },
+    patientType: { type: String, enum: ["OPD", "IPD"], default: "OPD" },
 
-    // -----------------------
-    // INPATIENT (IPD) DETAILS
-    // -----------------------
     ipdDetails: {
       ward: String,
       roomNo: String,
@@ -60,26 +46,29 @@ const patientSchema = new mongoose.Schema(
       dischargeDate: Date
     },
 
-    // -----------------------
-    // OUTPATIENT (OPD) DETAILS
-    // -----------------------
     opdDetails: {
       visitCount: { type: Number, default: 1 },
-      lastVisitDate: { type: Date, default: Date.now }
+      lastVisitDate: { type: Date, default: Date.now },
     },
 
-    // -----------------------
-    // HOSPITAL SYSTEM
-    // -----------------------
-    assignedDoctor: { type: mongoose.Schema.Types.ObjectId, ref: "Doctor" },
-    mrn: String,
+    assignedDoctor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Doctor",
+    },
 
-    // -----------------------
-    // REPORTS (NO PHOTO)
-    // -----------------------
-    reports: [{ type: mongoose.Schema.Types.ObjectId, ref: "Report" }]
+    lastReport: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Report",
+    },
+
+    reports: [{ type: mongoose.Schema.Types.ObjectId, ref: "Report" }],
   },
   { timestamps: true }
 );
 
-export default mongoose.models.Patient || mongoose.model("Patient", patientSchema);
+/* ================= INDEXES ================= */
+patientSchema.index({ assignedDoctor: 1 });
+patientSchema.index({ "opdDetails.lastVisitDate": -1 });
+
+export default mongoose.models.Patient ||
+  mongoose.model("Patient", patientSchema);

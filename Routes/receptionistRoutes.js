@@ -11,6 +11,8 @@ import {
   getPatientById,
   updatePatient,
   deletePatient,
+  getAllDoctors,
+  getDashboardStats,
 } from "../Controllers/receptionistController.js";
 
 const router = express.Router();
@@ -58,6 +60,22 @@ router.delete(
   protect,
   authorizeRoles("receptionist"),
   deletePatient
+);
+
+// DOCTORS LIST
+router.get(
+  "/all-doctors",
+  protect,
+  authorizeRoles("receptionist"),
+  getAllDoctors
+);
+
+// DASHBOARD STATS
+router.get(
+  "/dashboard-stats",
+  protect,
+  authorizeRoles("receptionist"),
+  getDashboardStats
 );
 
 export default router;

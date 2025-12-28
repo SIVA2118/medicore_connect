@@ -1,12 +1,11 @@
-// Controllers/billerController.js
 import Bill from "../Models/Bill.js";
-import Patient from "../models/Patient.js";
-import Doctor from "../models/Doctor.js";
-import Prescription from "../models/Prescription.js";
-import Report from "../models/Report.js";
+import Patient from "../Models/Patient.js";
+import Doctor from "../Models/Doctor.js";
+import Prescription from "../Models/Prescription.js";
+import Report from "../Models/Report.js";
 import ScanReport from "../Models/ScanReport.js";
-import mongoose from "mongoose";  
-import Biller from "../models/Biller.js";
+import mongoose from "mongoose";
+import Biller from "../Models/Biller.js";
 import { generatePDF } from "../Helpers/pdfGenerator.js";
 import axios from "axios";
 import jwt from "jsonwebtoken";
@@ -15,8 +14,46 @@ import fs from "fs";
 import FormData from "form-data";
 
 // -------------------------------------------------
-// 1️⃣ BILLER LOGIN
+// 9️⃣ GET ALL PATIENTS (Dropdown)
 // -------------------------------------------------
+export const getBillerPatients = async (req, res) => {
+  try {
+    const patients = await Patient.find({}, "name gender age phone patientType assignedDoctor mrn");
+    res.status(200).json({ success: true, patients });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// -------------------------------------------------
+// 🔟 GET ALL DOCTORS (Dropdown)
+// -------------------------------------------------
+export const getBillerDoctors = async (req, res) => {
+  try {
+    const doctors = await Doctor.find({}, "name specialization phone consultationFee");
+    res.status(200).json({ success: true, doctors });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// -------------------------------------------------
+// 1️⃣1️⃣ GET LATEST PRESCRIPTION FOR PATIENT
+// -------------------------------------------------
+export const getLatestPrescription = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const prescription = await Prescription.findOne({ patient: patientId })
+      .sort({ createdAt: -1 })
+      .limit(1);
+
+    res.status(200).json({ success: true, prescription });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// (Removed old function)
 export const loginBiller = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -60,7 +97,8 @@ export const createBill = async (req, res) => {
       billItems = [],
       prescriptionId,
       reportId,
-      scanReportId
+      scanReportIds = [], // Array of IDs
+      paymentMode
     } = req.body;
 
     if (!patientId || !doctorId || !treatment || billItems.length === 0) {
@@ -81,8 +119,18 @@ export const createBill = async (req, res) => {
       amount,
       prescription: prescriptionId || null,
       report: reportId || null,
-      scanReport: scanReportId || null
+      scanReports: scanReportIds, // Save array
+      paymentMode: paymentMode || "Cash",
+      paid: true // ✅ Auto-complete bill status
     });
+
+    // ✅ MARK SCAN REPORTS AS BILLED
+    if (scanReportIds.length > 0) {
+      await ScanReport.updateMany(
+        { _id: { $in: scanReportIds } },
+        { $set: { isBilled: true } }
+      );
+    }
 
     res.status(201).json({
       success: true,
@@ -94,7 +142,28 @@ export const createBill = async (req, res) => {
   }
 };
 
+// -------------------------------------------------
+// 1️⃣2️⃣ GET UNBILLED SCAN REPORTS FOR PATIENT
+// -------------------------------------------------
+export const getUnbilledScanReports = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const reports = await ScanReport.find({
+      patient: patientId,
+      isBilled: { $ne: true }, // Include false or missing
+      cost: { $gt: 0 } // Only fetch if chargeable
+    }).sort({ createdAt: -1 });
 
+    res.status(200).json({ success: true, reports });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+// -------------------------------------------------
+// 3️⃣ GENERATE BILL PDF USING BILL ID
+// -------------------------------------------------
 // -------------------------------------------------
 // 3️⃣ GENERATE BILL PDF USING BILL ID
 // -------------------------------------------------
@@ -102,15 +171,18 @@ export const generateBillPDF = async (req, res) => {
   try {
     const { billId } = req.body;
 
-   const bill = await Bill.findById(billId)
-  .populate("patient")
-  .populate("doctor")
-  .populate("prescription")
-  .populate("report")
-  .populate("scanReport");
-
+    const bill = await Bill.findById(billId)
+      .populate("patient")
+      .populate("doctor")
+      .populate("prescription")
+      .populate("report")
+      .populate("scanReports"); // Should assume this is an array
 
     if (!bill) return res.status(404).json({ message: "Bill not found" });
+
+    // Ensure we handle missing patient/doctor data gracefully
+    const patientData = bill.patient || {};
+    const doctorData = bill.doctor || {};
 
     // ------------------------------
     // FULL PATIENT OBJECT FOR PDF
@@ -121,165 +193,166 @@ export const generateBillPDF = async (req, res) => {
 
       // FULL PATIENT DETAILS
       patient: {
-        id: bill.patient._id.toString(),
-        name: bill.patient.name,
-        age: bill.patient.age,
-        gender: bill.patient.gender,
-        phone: bill.patient.phone,
-        email: bill.patient.email || "-",
+        id: patientData._id?.toString() || "N/A",
+        name: patientData.name || "Unknown Patient",
+        age: patientData.age || "-",
+        gender: patientData.gender || "-",
+        phone: patientData.phone || "-",
+        email: patientData.email || "-",
 
-        patientType: bill.patient.patientType || "-",
-        bloodGroup: bill.patient.bloodGroup || "-",
-        mrn: bill.patient.mrn || "-",
+        patientType: patientData.patientType || "-",
+        bloodGroup: patientData.bloodGroup || "-",
+        mrn: patientData.mrn || "-",
 
         address: {
-          line1: bill.patient.address?.line1 || "-",
-          line2: bill.patient.address?.line2 || "-",
-          city: bill.patient.address?.city || "-",
-          state: bill.patient.address?.state || "-",
-          pincode: bill.patient.address?.pincode || "-",
+          line1: patientData.address?.line1 || "-",
+          line2: patientData.address?.line2 || "-",
+          city: patientData.address?.city || "-",
+          state: patientData.address?.state || "-",
+          pincode: patientData.address?.pincode || "-",
         },
 
         emergencyContact: {
-          name: bill.patient.emergencyContact?.name || "-",
-          relation: bill.patient.emergencyContact?.relation || "-",
-          phone: bill.patient.emergencyContact?.phone || "-",
+          name: patientData.emergencyContact?.name || "-",
+          relation: patientData.emergencyContact?.relation || "-",
+          phone: patientData.emergencyContact?.phone || "-",
         },
 
-        allergies: bill.patient.allergies || [],
-        existingConditions: bill.patient.existingConditions || [],
-        currentMedications: bill.patient.currentMedications || [],
+        allergies: patientData.allergies || [],
+        existingConditions: patientData.existingConditions || [],
+        currentMedications: patientData.currentMedications || [],
 
-        opdDetails: bill.patient.opdDetails || {},
-        ipdDetails: bill.patient.ipdDetails || {},
+        opdDetails: patientData.opdDetails || {},
+        ipdDetails: patientData.ipdDetails || {},
 
-        assignedDoctorName: bill.doctor?.name || "-"
+        assignedDoctorName: doctorData.name || "-"
       },
 
-// ------------------------------
-// DOCTOR (FULL DETAILS)
-// ------------------------------
-doctor: {
-  id: bill?.doctor?._id?.toString() || "-",
-  name: bill?.doctor?.name || "-",
-  specialization: bill?.doctor?.specialization || "-",
-  phone: bill?.doctor?.phone || "-",
-  email: bill?.doctor?.email || "-",
+      // ------------------------------
+      // DOCTOR (FULL DETAILS)
+      // ------------------------------
+      doctor: {
+        id: doctorData._id?.toString() || "-",
+        name: doctorData.name || "Unknown Doctor",
+        specialization: doctorData.specialization || "-",
+        phone: doctorData.phone || "-",
+        email: doctorData.email || "-",
 
-  gender: bill?.doctor?.gender || "-",
-  age: bill?.doctor?.age || "-",
-  experience: bill?.doctor?.experience || 0,
-  qualification: bill?.doctor?.qualification || "-",
-  registrationNumber: bill?.doctor?.registrationNumber || "-",
+        gender: doctorData.gender || "-",
+        age: doctorData.age || "-",
+        experience: doctorData.experience || 0,
+        qualification: doctorData.qualification || "-",
+        registrationNumber: doctorData.registrationNumber || "-",
 
-  clinicAddress: bill?.doctor?.clinicAddress || "-",
-  consultationFee: bill?.doctor?.consultationFee || 0,
+        clinicAddress: doctorData.clinicAddress || "-",
+        consultationFee: doctorData.consultationFee || 0,
 
-  // Availability
-  availability: {
-    days: bill?.doctor?.availability?.days || [],
-    from: bill?.doctor?.availability?.from || "-",
-    to: bill?.doctor?.availability?.to || "-"
-  },
+        // Availability
+        availability: {
+          days: doctorData.availability?.days || [],
+          from: doctorData.availability?.from || "-",
+          to: doctorData.availability?.to || "-"
+        },
 
-  profileImage: bill?.doctor?.profileImage || "-",
-  bio: bill?.doctor?.bio || "-",
+        profileImage: doctorData.profileImage || "-",
+        bio: doctorData.bio || "-",
 
-  isActive: bill?.doctor?.isActive ?? true,
+        isActive: doctorData.isActive ?? true,
 
-  rating: {
-    average: bill?.doctor?.rating?.average || 0,
-    count: bill?.doctor?.rating?.count || 0
-  }
-},
-
-// ------------------------------
-// BILL ITEMS
-// ------------------------------
-    treatment: bill.treatment,
-    amount: bill.amount,
-    billItems: bill.billItems || [],
-
-// ------------------------------
-// PRESCRIPTION
-// ------------------------------
-prescription: bill.prescription || null,
-
-// ------------------------------
-// FULL DOCTOR REPORT DATA
-// ------------------------------
-report: bill.report
-  ? {
-      id: bill.report._id?.toString() || "-",
-      reportTitle: bill.report.reportTitle || "-",
-      reportDetails: bill.report.reportDetails || "-",
-      date: bill.report.date || null,
-
-      // Patient Condition
-      symptoms: bill.report.symptoms || [],
-      physicalExamination: bill.report.physicalExamination || "-",
-      clinicalFindings: bill.report.clinicalFindings || "-",
-      diagnosis: bill.report.diagnosis || "-",
-
-      // Vitals
-      vitals: {
-        temperature: bill.report.vitals?.temperature || "-",
-        bloodPressure: bill.report.vitals?.bloodPressure || "-",
-        pulseRate: bill.report.vitals?.pulseRate || "-",
-        respiratoryRate: bill.report.vitals?.respiratoryRate || "-",
-        oxygenLevel: bill.report.vitals?.oxygenLevel || "-",
-        weight: bill.report.vitals?.weight || "-"
+        rating: {
+          average: doctorData.rating?.average || 0,
+          count: doctorData.rating?.count || 0
+        }
       },
 
-      // Tests & Advice
-      advisedInvestigations: bill.report.advisedInvestigations || [],
-      treatmentAdvice: bill.report.treatmentAdvice || "-",
-      lifestyleAdvice: bill.report.lifestyleAdvice || "-",
+      // ------------------------------
+      // BILL ITEMS
+      // ------------------------------
+      treatment: bill.treatment,
+      amount: bill.amount,
+      billItems: bill.billItems || [],
 
-      followUpDate: bill.report.followUpDate || null,
-      additionalNotes: bill.report.additionalNotes || "-",
+      // ------------------------------
+      // PRESCRIPTION
+      // ------------------------------
+      prescription: bill.prescription || null,
 
-      // Signature
-      doctorSignature: bill.report.doctorSignature || null,
-    }
-  : null,
+      // ------------------------------
+      // FULL DOCTOR REPORT DATA
+      // ------------------------------
+      report: bill.report
+        ? {
+          id: bill.report._id?.toString() || "-",
+          reportTitle: bill.report.reportTitle || "-",
+          reportDetails: bill.report.reportDetails || "-",
+          date: bill.report.date || null,
 
-// ------------------------------
-// SCAN REPORT (FULL DATA)
-// ------------------------------
-scanReport: bill.scanReport
-  ? {
-      id: bill.scanReport._id?.toString() || "-",
+          // Patient Condition
+          symptoms: bill.report.symptoms || [],
+          physicalExamination: bill.report.physicalExamination || "-",
+          clinicalFindings: bill.report.clinicalFindings || "-",
+          diagnosis: bill.report.diagnosis || "-",
 
-      // Basic details
-      type: bill.scanReport.type || "-",
-      scanName: bill.scanReport.scanName || "-",
-      description: bill.scanReport.description || "-",
-      indication: bill.scanReport.indication || "-",
+          // Vitals
+          vitals: {
+            temperature: bill.report.vitals?.temperature || "-",
+            bloodPressure: bill.report.vitals?.bloodPressure || "-",
+            pulseRate: bill.report.vitals?.pulseRate || "-",
+            respiratoryRate: bill.report.vitals?.respiratoryRate || "-",
+            oxygenLevel: bill.report.vitals?.oxygenLevel || "-",
+            weight: bill.report.vitals?.weight || "-"
+          },
 
-      // Results
-      findings: bill.scanReport.findings || "-",
-      impression: bill.scanReport.impression || "-",
-      resultStatus: bill.scanReport.resultStatus || "Pending",
+          // Tests & Advice
+          advisedInvestigations: bill.report.advisedInvestigations || [],
+          treatmentAdvice: bill.report.treatmentAdvice || "-",
+          lifestyleAdvice: bill.report.lifestyleAdvice || "-",
 
-      // Lab details
-      labName: bill.scanReport.labName || "-",
-      technicianName: bill.scanReport.technicianName || "-",
+          followUpDate: bill.report.followUpDate || null,
+          additionalNotes: bill.report.additionalNotes || "-",
 
-      // Dates
-      scanDate: bill.scanReport.scanDate || null,
-      reportGeneratedDate: bill.scanReport.reportGeneratedDate || null,
+          // Signature
+          doctorSignature: bill.report.doctorSignature || null,
+        }
+        : null,
 
-      // Files
-      pdfFile: bill.scanReport.pdfFile || null,
-      images: bill.scanReport.images || [],
+      // ------------------------------
+      // SCAN REPORT (FULL DATA)
+      // ------------------------------
+      scanReport: (bill.scanReports && bill.scanReports.length > 0)
+        ? {
+          id: bill.scanReports[0]._id?.toString() || "-",
 
-      // Verification
-      isVerified: bill.scanReport.isVerified || false,
-      verifiedBy: bill.scanReport.verifiedBy?._id?.toString() || null
-    }
-  : null
-  };
+          // Basic details
+          type: bill.scanReports[0].type || "-",
+          scanName: bill.scanReports[0].scanName || "-",
+          description: bill.scanReports[0].description || "-",
+          indication: bill.scanReports[0].indication || "-",
+
+          // Results
+          findings: bill.scanReports[0].findings || "-",
+          impression: bill.scanReports[0].impression || "-",
+          resultStatus: bill.scanReports[0].resultStatus || "Pending",
+
+          // Lab details
+          labName: bill.scanReports[0].labName || "-",
+          technicianName: bill.scanReports[0].technicianName || "-",
+
+          // Dates
+          scanDate: bill.scanReports[0].scanDate || null,
+          reportGeneratedDate: bill.scanReports[0].reportGeneratedDate || null,
+
+          // Files
+          pdfFile: bill.scanReports[0].pdfFile || null,
+          images: bill.scanReports[0].images || [],
+
+          // Verification
+          isVerified: bill.scanReports[0].isVerified || false,
+          verifiedBy: bill.scanReports[0].verifiedBy?.toString() || null
+        }
+        : null
+    };
+
     // ------------------------------
     // GENERATE PDF
     // ------------------------------
@@ -294,8 +367,9 @@ scanReport: bill.scanReport
     res.send(buffer);
 
   } catch (error) {
-    console.error("❌ PDF Generation Error:", error);
-    res.status(500).json({ message: "Failed to generate PDF" });
+    console.error("❌ PDF Generation Error:", error?.message || error);
+    // Send 500 but also log specific cause
+    res.status(500).json({ message: "Failed to generate PDF", error: error?.message });
   }
 };
 
@@ -305,27 +379,35 @@ scanReport: bill.scanReport
 // -------------------------------------------------
 export const sendBillToPatient = async (req, res) => {
   try {
-    const { patientId } = req.body;
+    const { patientId, billId } = req.body;
 
-    if (!patientId) {
-      return res.status(400).json({ message: "patientId is required" });
+    if (!patientId && !billId) {
+      return res.status(400).json({ message: "billId or patientId is required" });
     }
 
-    // Convert to ObjectId safely
-    const patientObjectId = new mongoose.Types.ObjectId(patientId);
-
-    // Find latest bill for this patient
-    let bill = await Bill.findOne({ patient: patientObjectId })
-      .sort({ createdAt: -1 })
-      .populate("patient")
-      .populate("doctor")
-      .populate("prescription")
-      .populate("report")
-      .populate("scanReport");
+    let bill;
+    if (billId) {
+      bill = await Bill.findById(billId)
+        .populate("patient")
+        .populate("doctor")
+        .populate("prescription")
+        .populate("report")
+        .populate("scanReports");
+    } else {
+      // Find latest bill for this patient
+      const patientObjectId = new mongoose.Types.ObjectId(patientId);
+      bill = await Bill.findOne({ patient: patientObjectId })
+        .sort({ createdAt: -1 })
+        .populate("patient")
+        .populate("doctor")
+        .populate("prescription")
+        .populate("report")
+        .populate("scanReports");
+    }
 
     // If no bill found
     if (!bill) {
-      return res.status(404).json({ message: "Bill not found for this patient" });
+      return res.status(404).json({ message: "Bill not found" });
     }
 
     // Patient must have phone number
@@ -438,11 +520,12 @@ export const sendBillToPatient = async (req, res) => {
 export const getBills = async (req, res) => {
   try {
     const bills = await Bill.find()
-      .populate("patient", "name age gender phone")
+      .populate("patient", "name age gender phone patientType mrn address")
       .populate("doctor", "name specialization")
       .populate("prescription")
       .populate("report")
-      .populate("scanReport");
+      .populate("scanReports")
+      .sort({ createdAt: -1 });
 
     res.status(200).json({ success: true, bills });
   } catch (error) {
@@ -512,5 +595,176 @@ export const deleteBill = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// -------------------------------------------------
+// 1️⃣3️⃣ PUBLIC VIEW BILL PDF (GET ROUTE)
+// -------------------------------------------------
+export const viewBillPDF = async (req, res) => {
+  try {
+    const { billId } = req.params;
+
+    const bill = await Bill.findById(billId)
+      .populate("patient")
+      .populate("doctor")
+      .populate("prescription")
+      .populate("report")
+      .populate("scanReports");
+
+    if (!bill) return res.status(404).send("Bill not found");
+
+    // Ensure we handle missing patient/doctor data gracefully
+    const patientData = bill.patient || {};
+    const doctorData = bill.doctor || {};
+
+    // ------------------------------
+    // FULL PATIENT OBJECT FOR PDF
+    // ------------------------------
+    const pdfData = {
+      billId: bill._id.toString(),
+      date: new Date().toLocaleDateString("en-IN"),
+
+      // FULL PATIENT DETAILS
+      patient: {
+        id: patientData._id?.toString() || "N/A",
+        name: patientData.name || "Unknown Patient",
+        age: patientData.age || "-",
+        gender: patientData.gender || "-",
+        phone: patientData.phone || "-",
+        email: patientData.email || "-",
+        patientType: patientData.patientType || "-",
+        bloodGroup: patientData.bloodGroup || "-",
+        mrn: patientData.mrn || "-",
+        address: {
+          line1: patientData.address?.line1 || "-",
+          line2: patientData.address?.line2 || "-",
+          city: patientData.address?.city || "-",
+          state: patientData.address?.state || "-",
+          pincode: patientData.address?.pincode || "-",
+        },
+        emergencyContact: {
+          name: patientData.emergencyContact?.name || "-",
+          relation: patientData.emergencyContact?.relation || "-",
+          phone: patientData.emergencyContact?.phone || "-",
+        },
+        allergies: patientData.allergies || [],
+        existingConditions: patientData.existingConditions || [],
+        currentMedications: patientData.currentMedications || [],
+        opdDetails: patientData.opdDetails || {},
+        ipdDetails: patientData.ipdDetails || {},
+        assignedDoctorName: doctorData.name || "-"
+      },
+
+      // ------------------------------
+      // DOCTOR (FULL DETAILS)
+      // ------------------------------
+      doctor: {
+        id: doctorData._id?.toString() || "-",
+        name: doctorData.name || "Unknown Doctor",
+        specialization: doctorData.specialization || "-",
+        phone: doctorData.phone || "-",
+        email: doctorData.email || "-",
+        gender: doctorData.gender || "-",
+        age: doctorData.age || "-",
+        experience: doctorData.experience || 0,
+        qualification: doctorData.qualification || "-",
+        registrationNumber: doctorData.registrationNumber || "-",
+        clinicAddress: doctorData.clinicAddress || "-",
+        consultationFee: doctorData.consultationFee || 0,
+        availability: {
+          days: doctorData.availability?.days || [],
+          from: doctorData.availability?.from || "-",
+          to: doctorData.availability?.to || "-"
+        },
+        profileImage: doctorData.profileImage || "-",
+        bio: doctorData.bio || "-",
+        isActive: doctorData.isActive ?? true,
+        rating: {
+          average: doctorData.rating?.average || 0,
+          count: doctorData.rating?.count || 0
+        }
+      },
+
+      // ------------------------------
+      // BILL ITEMS
+      // ------------------------------
+      treatment: bill.treatment,
+      amount: bill.amount,
+      billItems: bill.billItems || [],
+      prescription: bill.prescription || null,
+
+      // ------------------------------
+      // FULL DOCTOR REPORT DATA
+      // ------------------------------
+      report: bill.report
+        ? {
+          id: bill.report._id?.toString() || "-",
+          reportTitle: bill.report.reportTitle || "-",
+          reportDetails: bill.report.reportDetails || "-",
+          date: bill.report.date || null,
+          symptoms: bill.report.symptoms || [],
+          physicalExamination: bill.report.physicalExamination || "-",
+          clinicalFindings: bill.report.clinicalFindings || "-",
+          diagnosis: bill.report.diagnosis || "-",
+          vitals: {
+            temperature: bill.report.vitals?.temperature || "-",
+            bloodPressure: bill.report.vitals?.bloodPressure || "-",
+            pulseRate: bill.report.vitals?.pulseRate || "-",
+            respiratoryRate: bill.report.vitals?.respiratoryRate || "-",
+            oxygenLevel: bill.report.vitals?.oxygenLevel || "-",
+            weight: bill.report.vitals?.weight || "-"
+          },
+          advisedInvestigations: bill.report.advisedInvestigations || [],
+          treatmentAdvice: bill.report.treatmentAdvice || "-",
+          lifestyleAdvice: bill.report.lifestyleAdvice || "-",
+          followUpDate: bill.report.followUpDate || null,
+          additionalNotes: bill.report.additionalNotes || "-",
+          doctorSignature: bill.report.doctorSignature || null,
+        }
+        : null,
+
+      // ------------------------------
+      // SCAN REPORT
+      // ------------------------------
+      scanReport: (bill.scanReports && bill.scanReports.length > 0)
+        ? {
+          id: bill.scanReports[0]._id?.toString() || "-",
+          type: bill.scanReports[0].type || "-",
+          scanName: bill.scanReports[0].scanName || "-",
+          description: bill.scanReports[0].description || "-",
+          indication: bill.scanReports[0].indication || "-",
+          findings: bill.scanReports[0].findings || "-",
+          impression: bill.scanReports[0].impression || "-",
+          resultStatus: bill.scanReports[0].resultStatus || "Pending",
+          labName: bill.scanReports[0].labName || "-",
+          technicianName: bill.scanReports[0].technicianName || "-",
+          scanDate: bill.scanReports[0].scanDate || null,
+          reportGeneratedDate: bill.scanReports[0].reportGeneratedDate || null,
+          pdfFile: bill.scanReports[0].pdfFile || null,
+          images: bill.scanReports[0].images || [],
+          isVerified: bill.scanReports[0].isVerified || false,
+          verifiedBy: bill.scanReports[0].verifiedBy?.toString() || null
+        }
+        : null
+    };
+
+    // ------------------------------
+    // GENERATE PDF
+    // ------------------------------
+    const fileName = `bill_${bill._id}_${Date.now()}.pdf`;
+    const { buffer, path: pdfFullPath } = await generatePDF(pdfData, fileName);
+
+    // Save path for future use
+    bill.pdfFile = pdfFullPath;
+    await bill.save();
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+    res.send(buffer);
+
+  } catch (error) {
+    console.error("❌ PDF View Error:", error?.message || error);
+    res.status(500).send("Failed to load PDF");
   }
 };

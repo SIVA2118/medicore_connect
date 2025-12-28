@@ -101,5 +101,10 @@ const reportSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+/* ================= INDEXES ================= */
+reportSchema.index({ patient: 1 });
+reportSchema.index({ doctor: 1 });
+reportSchema.index({ date: -1 });
+
 // Prevent OverwriteModelError
 export default mongoose.models.Report || mongoose.model("Report", reportSchema);

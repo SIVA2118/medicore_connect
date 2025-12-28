@@ -1,8 +1,13 @@
-import Admin from "../models/Admin.js";
-import Receptionist from "../models/Receptionist.js";
-import Doctor from "../models/Doctor.js";
-import Scanner from "../models/Scanner.js";
-import Biller from "../models/Biller.js";
+import Admin from "../Models/Admin.js";
+import Receptionist from "../Models/Receptionist.js";
+import Doctor from "../Models/Doctor.js";
+import Scanner from "../Models/Scanner.js";
+import Biller from "../Models/Biller.js";
+import Patient from "../Models/Patient.js";
+import Bill from "../Models/Bill.js";
+import ScanReport from "../Models/ScanReport.js";
+import Report from "../Models/Report.js";
+import Prescription from "../Models/Prescription.js";
 
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -341,5 +346,163 @@ export const deleteUser = async (req, res) => {
     res.status(200).json({ message: "User deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+/* =====================================================
+   GET ADMIN DASHBOARD STATS
+===================================================== */
+export const getDashboardStats = async (req, res) => {
+  try {
+    // Run everything in parallel for max performance
+    const [
+      adminCount,
+      doctorCount,
+      receptionistCount,
+      scannerCount,
+      billerCount,
+      totalPatients,
+      totalBills,
+      totalScanReports,
+      totalDoctorReports,
+      totalPrescriptions,
+      revenueStats
+    ] = await Promise.all([
+      Admin.countDocuments(),
+      Doctor.countDocuments(),
+      Receptionist.countDocuments(),
+      Scanner.countDocuments(),
+      Biller.countDocuments(),
+      Patient.countDocuments(),
+      Bill.countDocuments(),
+      ScanReport.countDocuments(),
+      Report.countDocuments(),
+      Prescription.countDocuments(),
+      // Calculate revenue from paid bills
+      Bill.aggregate([
+        { $match: { paid: true } },
+        { $group: { _id: null, total: { $sum: "$amount" } } }
+      ])
+    ]);
+
+    // Calculate unpaid/pending amount
+    const pendingStats = await Bill.aggregate([
+      { $match: { paid: false } },
+      { $group: { _id: null, total: { $sum: "$amount" } } }
+    ]);
+
+    // Get recent activity (newest 5 patients)
+    const recentPatients = await Patient.find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select("name mrn patientType createdAt")
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      stats: {
+        staff: {
+          admins: adminCount,
+          doctors: doctorCount,
+          receptionists: receptionistCount,
+          scanners: scannerCount,
+          billers: billerCount,
+        },
+        clinical: {
+          patients: totalPatients,
+          scanReports: totalScanReports,
+          doctorReports: totalDoctorReports,
+          prescriptions: totalPrescriptions,
+        },
+        financial: {
+          totalBills,
+          totalRevenue: revenueStats[0]?.total || 0,
+          pendingRevenue: pendingStats[0]?.total || 0
+        }
+      },
+      recentPatients
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* =====================================================
+   GET ALL CLINICAL REPORTS (Admin View)
+===================================================== */
+export const getAllClinicalReports = async (req, res) => {
+  try {
+    const [scanReports, doctorReports] = await Promise.all([
+      ScanReport.find()
+        .populate("patient", "name mrn phone")
+        .populate("doctor", "name specialization")
+        .populate("assignedTo", "name")
+        .sort({ createdAt: -1 })
+        .lean(),
+      Report.find()
+        .populate("patient", "name mrn phone")
+        .populate("doctor", "name specialization")
+        .sort({ date: -1 })
+        .lean()
+    ]);
+
+    // Format them for a unified list if needed, or send separately
+    // I'll format them into a "Unified Clinical Timeline"
+    const unifiedReports = [
+      ...scanReports.map(sr => ({
+        ...sr,
+        reportType: "Scan",
+        title: sr.scanName || "Scan Report",
+        date: sr.createdAt
+      })),
+      ...doctorReports.map(dr => ({
+        ...dr,
+        reportType: "Clinical",
+        title: dr.reportTitle || "Clinical Report",
+        date: dr.date
+      }))
+    ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    res.status(200).json({
+      success: true,
+      reports: unifiedReports
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* =====================================================
+   GET SINGLE PATIENT DETAILS (Admin View)
+===================================================== */
+export const getPatientDetails = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+
+    const [patient, reports, prescriptions, scanReports] = await Promise.all([
+      Patient.findById(patientId)
+        .populate("assignedDoctor", "name specialization")
+        .lean(),
+      Report.find({ patient: patientId })
+        .populate("doctor", "name")
+        .sort({ date: -1 })
+        .lean(),
+      Prescription.find({ patient: patientId })
+        .populate("doctor", "name")
+        .sort({ createdAt: -1 })
+        .lean(),
+      ScanReport.find({ patient: patientId })
+        .populate("doctor", "name")
+        .populate("assignedTo", "name")
+        .sort({ createdAt: -1 })
+        .lean()
+    ]);
+
+    if (!patient)
+      return res.status(404).json({ success: false, message: "Patient not found" });
+
+    res.json({ success: true, ...patient, reports, prescriptions, scanReports });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error fetching patient details", error: error.message });
   }
 };

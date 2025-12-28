@@ -5,10 +5,15 @@ import {
   loginBiller,
   createBill,
   generateBillPDF,
-  getBills,      // ← THIS
+  getBills,
   sendBillToPatient,
   updateBill,
-  deleteBill
+  deleteBill,
+  getBillerPatients,
+  getBillerDoctors,
+  getLatestPrescription,
+  getUnbilledScanReports,
+  viewBillPDF
 } from "../Controllers/billerController.js";
 
 
@@ -62,6 +67,43 @@ router.post(
   protect,
   authorizeRoles("biller"),
   sendBillToPatient
+);
+
+// Helper Routes for Dropdowns
+router.get(
+  "/patients",
+  protect,
+  authorizeRoles("biller"),
+  getBillerPatients
+);
+
+router.get(
+  "/doctors",
+  protect,
+  authorizeRoles("biller"),
+  getBillerDoctors
+);
+
+router.get(
+  "/prescription/:patientId",
+  protect,
+  authorizeRoles("biller"),
+  getLatestPrescription
+);
+
+router.get(
+  "/unbilled-scan-reports/:patientId",
+  protect,
+  authorizeRoles("biller"),
+  getUnbilledScanReports
+);
+
+// -------------------------------------------------
+// PUBLIC PDF VIEW LINK (No Authentication)
+// -------------------------------------------------
+router.get(
+  "/view-pdf/:billId",
+  viewBillPDF
 );
 
 export default router;

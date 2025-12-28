@@ -1,5 +1,6 @@
-import Receptionist from "../models/Receptionist.js";
+import Receptionist from "../Models/Receptionist.js";
 import Patient from "../Models/Patient.js";
+import Doctor from "../Models/Doctor.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 
@@ -51,6 +52,7 @@ export const createPatient = async (req, res) => {
       dob,
       phone,
       email,
+      profileImage,
       address,
       bloodGroup,
       allergies,
@@ -70,6 +72,7 @@ export const createPatient = async (req, res) => {
       dob,
       phone,
       email,
+      profileImage,
 
       // Address object
       address: {
@@ -97,7 +100,7 @@ export const createPatient = async (req, res) => {
       opdDetails,           // Only for OPD
 
       assignedDoctor,
-      mrn: "MRN" + Date.now()
+      mrn: "MRN-" + Math.floor(100000 + Math.random() * 900000)
     });
 
     await patient.save();
@@ -191,6 +194,59 @@ export const deletePatient = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Patient deleted successfully"
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// --------------------------------------------------
+// 7️⃣ GET ALL DOCTORS (For Assignment)
+// --------------------------------------------------
+export const getAllDoctors = async (req, res) => {
+  try {
+    const doctors = await Doctor.find().select("name email specialization phone availability profileImage");
+    res.status(200).json({ success: true, doctors });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// --------------------------------------------------
+// 8️⃣ GET DASHBOARD STATS
+// --------------------------------------------------
+export const getDashboardStats = async (req, res) => {
+  try {
+    // 1. Total Patients
+    const totalPatients = await Patient.countDocuments();
+
+    // 2. Today's Patients
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const todayPatients = await Patient.countDocuments({
+      createdAt: { $gte: startOfDay, $lte: endOfDay }
+    });
+
+    // 3. Available Doctors
+    const availableDoctors = await Doctor.countDocuments();
+
+    // 4. Recent Patients (Last 5)
+    const recentPatients = await Patient.find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select("name age gender patientType createdAt");
+
+    res.status(200).json({
+      success: true,
+      stats: {
+        totalPatients,
+        todayPatients,
+        availableDoctors
+      },
+      recentPatients
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

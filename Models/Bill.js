@@ -24,10 +24,10 @@ const billSchema = new mongoose.Schema(
       ref: "Report"
     },
 
-scanReport: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "ScanReport"
-},
+    scanReports: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ScanReport"
+    }],
 
     treatment: {
       type: String,
@@ -51,7 +51,13 @@ scanReport: {
 
     paid: {
       type: Boolean,
-      default: false
+      default: true
+    },
+
+    paymentMode: {
+      type: String,
+      enum: ["Cash", "Card", "UPI"],
+      default: "Cash"
     }
   },
   { timestamps: true }

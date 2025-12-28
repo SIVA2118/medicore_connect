@@ -9,7 +9,11 @@ import {
   getScanReportById,
   updateScanReport,
   deleteScanReport,
-  verifyScanReport
+  verifyScanReport,
+  getDashboardStats,
+  getAllPatientsForScanner,
+  getAllDoctorsForScanner,
+  getAllScanners
 } from "../Controllers/scannerController.js";
 
 const router = express.Router();
@@ -23,7 +27,7 @@ router.post("/login", loginScanner);
 router.post(
   "/scan-report",
   protect,
-  authorizeRoles("scanner"),
+  authorizeRoles("scanner", "doctor"),
   createScanReport
 );
 
@@ -65,6 +69,30 @@ router.delete(
   protect,
   authorizeRoles("scanner", "admin"),
   deleteScanReport
+);
+
+// DASHBOARD STATS
+router.get(
+  "/dashboard-stats",
+  protect,
+  authorizeRoles("scanner"),
+  getDashboardStats
+);
+
+// GET ALL DOCTORS
+router.get(
+  "/all-doctors",
+  protect,
+  authorizeRoles("scanner"),
+  getAllDoctorsForScanner
+);
+
+// GET ALL SCANNERS
+router.get(
+  "/all-scanners",
+  protect,
+  authorizeRoles("doctor", "admin"),
+  getAllScanners
 );
 
 export default router;

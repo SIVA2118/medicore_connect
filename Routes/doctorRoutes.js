@@ -12,6 +12,7 @@ import {
   createReport,
   createPrescription,
   reassignPatient,
+  getAllDoctors,
 
   // CRUD (NEW)
   getPatientById,
@@ -21,6 +22,8 @@ import {
   getPrescriptionById,
   updatePrescription,
   deletePrescription,
+  getDashboardStats,
+  getScanReportById
 } from "../Controllers/doctorController.js";
 
 const router = express.Router();
@@ -33,21 +36,24 @@ router.get("/profile", protect, authorizeRoles("doctor"), getDoctorProfile);
 router.put("/profile", protect, authorizeRoles("doctor"), updateDoctorProfile);
 router.put("/availability", protect, authorizeRoles("doctor"), updateDoctorAvailability);
 router.put("/password", protect, authorizeRoles("doctor"), updateDoctorPassword);
+router.get("/dashboard-stats", protect, authorizeRoles("doctor"), getDashboardStats);
 
 /* ================= PATIENT ================= */
 router.get("/patients", protect, authorizeRoles("doctor"), getDoctorPatients);
-router.get("/patient/:patientId", protect, authorizeRoles("doctor"), getPatientById);
-router.post("/reassign", protect, authorizeRoles("doctor"), reassignPatient);
+router.get("/patient/:patientId", protect, authorizeRoles("doctor", "admin"), getPatientById);
+router.get("/doctors", protect, authorizeRoles("doctor", "admin"), getAllDoctors);
+router.post("/reassign", protect, authorizeRoles("doctor", "admin"), reassignPatient);
 
 /* ================= REPORT CRUD ================= */
 router.post("/report", protect, authorizeRoles("doctor"), createReport);
-router.get("/report/:reportId", protect, authorizeRoles("doctor"), getReportById);
+router.get("/report/:reportId", protect, authorizeRoles("doctor", "admin"), getReportById);
 router.put("/report/:reportId", protect, authorizeRoles("doctor"), updateReport);
 router.delete("/report/:reportId", protect, authorizeRoles("doctor"), deleteReport);
+router.get("/scan-report/:reportId", protect, authorizeRoles("doctor", "admin"), getScanReportById);
 
 /* ================= PRESCRIPTION CRUD ================= */
 router.post("/prescription", protect, authorizeRoles("doctor"), createPrescription);
-router.get("/prescription/:prescriptionId", protect, authorizeRoles("doctor"), getPrescriptionById);
+router.get("/prescription/:prescriptionId", protect, authorizeRoles("doctor", "admin"), getPrescriptionById);
 router.put("/prescription/:prescriptionId", protect, authorizeRoles("doctor"), updatePrescription);
 router.delete("/prescription/:prescriptionId", protect, authorizeRoles("doctor"), deletePrescription);
 

@@ -36,6 +36,11 @@ const prescriptionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+/* ================= INDEXES ================= */
+prescriptionSchema.index({ patient: 1 });
+prescriptionSchema.index({ doctor: 1 });
+prescriptionSchema.index({ createdAt: -1 });
+
 // prevent OverwriteModelError
 export default mongoose.models.Prescription ||
   mongoose.model("Prescription", prescriptionSchema);

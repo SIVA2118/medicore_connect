@@ -2,11 +2,11 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 
-import adminRoutes from "./routes/adminRoutes.js";
-import receptionistRoutes from "./routes/receptionistRoutes.js";
-import doctorRoutes from "./routes/doctorRoutes.js";
-import scannerRoutes from "./routes/scannerRoutes.js";
-import billerRoutes from "./routes/billerRoutes.js";
+import adminRoutes from "./Routes/adminRoutes.js";
+import receptionistRoutes from "./Routes/receptionistRoutes.js";
+import doctorRoutes from "./Routes/doctorRoutes.js";
+import scannerRoutes from "./Routes/scannerRoutes.js";
+import billerRoutes from "./Routes/billerRoutes.js";
 
 import { connectDB } from "./config/db.js";
 
@@ -25,7 +25,7 @@ app.use(async (req, res, next) => {
   }
 });
 
-app.use(express.json());
+app.use(express.json({ limit: "50mb" }));
 app.use(cors());
 
 /* ================= ROUTES ================= */
