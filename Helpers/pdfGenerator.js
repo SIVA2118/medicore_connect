@@ -75,10 +75,16 @@ export const generatePDF = (data, fileName) => {
       y += 20;
       doc.font("Helvetica-Bold").fontSize(10).fillColor("#000").text(data.patient?.name || "Unknown", leftX, y);
       doc.font("Helvetica").text(data.patient?.phone || "-", leftX, y + 15);
-      doc.text(
-        `${data.patient?.address?.city || ""}, ${data.patient?.address?.state || ""}`,
-        leftX, y + 30, { width: 250 }
-      );
+      const patientAddr = data.patient?.address || {};
+      const fullAddress = [
+        patientAddr.line1,
+        patientAddr.line2,
+        patientAddr.city,
+        patientAddr.state,
+        patientAddr.pincode
+      ].filter(Boolean).join(", ");
+
+      doc.text(fullAddress || "Address not available", leftX, y + 30, { width: 250 });
 
       // Invoice Box
       y = 150; // Align Top
@@ -157,6 +163,7 @@ export const generatePDF = (data, fileName) => {
       drawFooter(1);
 
 
+      // ---------------------------------------------------------
       // ---------------------------------------------------------
       // 📄 PAGE 2: FULL PATIENT PROFILE (Requested "Full Field" View)
       // ---------------------------------------------------------
@@ -261,6 +268,7 @@ export const generatePDF = (data, fileName) => {
       drawFooter(2);
 
       // ---------------------------------------------------------
+      // ---------------------------------------------------------
       // 📄 PAGE 3: DOCTOR DETAILS (Requested "Full Field" View)
       // ---------------------------------------------------------
       doc.addPage();
@@ -320,271 +328,8 @@ export const generatePDF = (data, fileName) => {
 
 
       // ---------------------------------------------------------
-      // 📄 PAGE 4: GENERAL CHECKUP REPORT
       // ---------------------------------------------------------
-      if (data.report) {
-        doc.addPage();
-        drawHeader();
-        y = 130;
-        doc.font("Helvetica-Bold").fontSize(16).fillColor(COLORS.secondary).text("General Checkup Report", 50, y);
-
-        // Date
-        doc.fontSize(10).fillColor("#000").text(`Date: ${data.date || new Date().toLocaleString()}`, 50, y + 5, { align: "right" });
-        y += 30;
-
-        // Patient Details Block
-        y = drawSectionTitle("Patient Details", y);
-        doc.font("Helvetica-Bold").fontSize(10).fillColor("#000").text("Name:", 60, y);
-        doc.font("Helvetica").text(data.patient?.name || "-", 100, y);
-
-        doc.font("Helvetica-Bold").text("Age/Gender:", 300, y);
-        doc.font("Helvetica").text(`${data.patient?.age || "-"} / ${data.patient?.gender || "-"}`, 380, y);
-        y += 30;
-
-        const rep = data.report || {};
-
-        // 1. Vitals
-        if (rep.vitals) {
-          y = drawSectionTitle("Vitals & Measurements", y);
-          const v = rep.vitals;
-
-          doc.font("Helvetica").fontSize(10).fillColor("#000");
-          const drawVital = (lbl, val, x, ly) => {
-            doc.font("Helvetica-Bold").text(lbl, x, ly);
-            doc.font("Helvetica").text(val, x, ly + 15);
-          };
-
-          // Layout based on user request visual
-          drawVital("BP", v.bloodPressure, 60, y);
-          drawVital("Pulse", v.pulseRate, 160, y);
-          drawVital("Temp", v.temperature, 260, y);
-          drawVital("O2 Level", v.oxygenLevel, 360, y);
-          drawVital("Weight", v.weight, 460, y);
-          y += 40;
-        }
-
-        // 2. Clinical Observations
-        if (rep.symptoms?.length || rep.physicalExamination || rep.clinicalFindings) {
-          y = drawSectionTitle("Clinical Observations", y);
-
-          if (rep.symptoms?.length) {
-            doc.font("Helvetica-Bold").text("Symptoms:", 60, y);
-            doc.font("Helvetica").text(rep.symptoms.join(", "), 60, y + 15, { width: 480 });
-            y += doc.heightOfString(rep.symptoms.join(", "), { width: 480 }) + 25;
-          }
-
-          if (rep.physicalExamination) {
-            doc.font("Helvetica-Bold").text("Physical Examination:", 60, y);
-            doc.font("Helvetica").text(rep.physicalExamination, 60, y + 15, { width: 480 });
-            y += doc.heightOfString(rep.physicalExamination, { width: 480 }) + 25;
-          }
-
-          if (rep.clinicalFindings) {
-            doc.font("Helvetica-Bold").text("Clinical Findings:", 60, y);
-            doc.font("Helvetica").text(rep.clinicalFindings, 60, y + 15, { width: 480 });
-            y += doc.heightOfString(rep.clinicalFindings, { width: 480 }) + 25;
-          }
-        }
-
-        // 3. Diagnosis
-        if (rep.diagnosis || rep.reportDetails) {
-          y = drawSectionTitle("Diagnosis & Details", y);
-
-          if (rep.diagnosis) {
-            doc.font("Helvetica-Bold").text("Final Diagnosis:", 60, y);
-            doc.font("Helvetica").text(rep.diagnosis, 160, y, { width: 380 });
-            y += 20;
-          }
-
-          if (rep.reportDetails) {
-            doc.font("Helvetica-Bold").text("Report Details:", 60, y);
-            doc.font("Helvetica").text(rep.reportDetails, 60, y + 15, { width: 480 });
-            y += doc.heightOfString(rep.reportDetails, { width: 480 }) + 25;
-          }
-        }
-
-        // 4. Plan & Advice
-        if (rep.treatmentAdvice || rep.lifestyleAdvice || rep.advisedInvestigations?.length > 0) {
-          y = drawSectionTitle("Plan & Advice", y);
-
-          if (rep.treatmentAdvice) {
-            doc.font("Helvetica-Bold").text("Treatment Advice:", 60, y);
-            doc.font("Helvetica").text(rep.treatmentAdvice, 60, y + 15, { width: 480 });
-            y += doc.heightOfString(rep.treatmentAdvice, { width: 480 }) + 25;
-          }
-
-          if (rep.lifestyleAdvice) {
-            doc.font("Helvetica-Bold").text("Lifestyle Advice:", 60, y);
-            doc.font("Helvetica").text(rep.lifestyleAdvice, 60, y + 15, { width: 480 });
-            y += doc.heightOfString(rep.lifestyleAdvice, { width: 480 }) + 25;
-          }
-
-          if (rep.advisedInvestigations?.length > 0) {
-            doc.font("Helvetica-Bold").text("Advised Investigations:", 60, y);
-            doc.font("Helvetica").text(rep.advisedInvestigations.join("\n"), 60, y + 15, { width: 480 });
-            y += doc.heightOfString(rep.advisedInvestigations.join("\n"), { width: 480 }) + 25;
-          }
-        }
-
-        // 5. Follow-up
-        if (rep.followUpDate || rep.additionalNotes) {
-          y = drawSectionTitle("Follow-up & Notes", y);
-
-          if (rep.followUpDate) {
-            doc.font("Helvetica-Bold").text("Follow-up Date:", 60, y);
-            doc.font("Helvetica").text(new Date(rep.followUpDate).toLocaleDateString(), 160, y);
-            y += 20;
-          }
-
-          if (rep.additionalNotes) {
-            doc.font("Helvetica-Bold").text("Additional Notes:", 60, y);
-            doc.font("Helvetica").text(rep.additionalNotes, 160, y, { width: 380 });
-          }
-        }
-
-        // Signature
-        y += 40;
-        doc.font("Helvetica-Bold").text("Doctor's Signature:", 400, y);
-        y += 30;
-        doc.font("Helvetica").text(`Dr. ${data.doctor?.name || "-"}`, 400, y);
-        doc.text(new Date().toLocaleDateString(), 400, y + 15);
-
-        drawFooter(4);
-      }
-
-
-      // ---------------------------------------------------------
-      // 📄 PAGE 5: PRESCRIPTION SUMMARY REPORT (Duplicate Disabled)
-      // ---------------------------------------------------------
-      if (false) {
-        doc.addPage();
-        drawHeader();
-        y = 130;
-        doc.font("Helvetica-Bold").fontSize(16).fillColor(COLORS.secondary).text("General Checkup Report", 50, y);
-
-        // Date
-        doc.fontSize(10).fillColor("#000").text(`Date: ${new Date().toLocaleString()}`, 50, y + 5, { align: "right" });
-        y += 30;
-
-        // Patient Details Block
-        y = drawSectionTitle("Patient Details", y);
-        doc.font("Helvetica-Bold").fontSize(10).fillColor("#000").text("Name:", 60, y);
-        doc.font("Helvetica").text(data.patient?.name || "-", 100, y);
-
-        doc.font("Helvetica-Bold").text("Age/Gender:", 300, y);
-        doc.font("Helvetica").text(`${data.patient?.age || "-"} / ${data.patient?.gender || "-"}`, 380, y);
-        y += 30;
-
-        const rep = data.report || {};
-
-        // 1. Vitals
-        if (rep.vitals) {
-          y = drawSectionTitle("Vitals & Measurements", y);
-          const v = rep.vitals;
-
-          doc.font("Helvetica").fontSize(10).fillColor("#000");
-          const drawVital = (lbl, val, x, ly) => {
-            doc.font("Helvetica-Bold").text(lbl, x, ly);
-            doc.font("Helvetica").text(val, x, ly + 15);
-          };
-
-          // Layout based on user request visual
-          drawVital("BP", v.bloodPressure, 60, y);
-          drawVital("Pulse", v.pulseRate, 160, y);
-          drawVital("Temp", v.temperature, 260, y);
-          drawVital("O2 Level", v.oxygenLevel, 360, y);
-          drawVital("Weight", v.weight, 460, y);
-          y += 40;
-        }
-
-        // 2. Clinical Observations
-        if (rep.symptoms?.length || rep.physicalExamination || rep.clinicalFindings) {
-          y = drawSectionTitle("Clinical Observations", y);
-
-          if (rep.symptoms?.length) {
-            doc.font("Helvetica-Bold").text("Symptoms:", 60, y);
-            doc.font("Helvetica").text(rep.symptoms.join(", "), 60, y + 15, { width: 480 });
-            y += doc.heightOfString(rep.symptoms.join(", "), { width: 480 }) + 25;
-          }
-
-          if (rep.physicalExamination) {
-            doc.font("Helvetica-Bold").text("Physical Examination:", 60, y);
-            doc.font("Helvetica").text(rep.physicalExamination, 60, y + 15, { width: 480 });
-            y += doc.heightOfString(rep.physicalExamination, { width: 480 }) + 25;
-          }
-
-          if (rep.clinicalFindings) {
-            doc.font("Helvetica-Bold").text("Clinical Findings:", 60, y);
-            doc.font("Helvetica").text(rep.clinicalFindings, 60, y + 15, { width: 480 });
-            y += doc.heightOfString(rep.clinicalFindings, { width: 480 }) + 25;
-          }
-        }
-
-        // 3. Diagnosis
-        if (rep.diagnosis || rep.reportDetails) {
-          y = drawSectionTitle("Diagnosis & Details", y);
-
-          if (rep.diagnosis) {
-            doc.font("Helvetica-Bold").text("Final Diagnosis:", 60, y);
-            doc.font("Helvetica").text(rep.diagnosis, 160, y, { width: 380 });
-            y += 20;
-          }
-
-          if (rep.reportDetails) {
-            doc.font("Helvetica-Bold").text("Report Details:", 60, y);
-            doc.font("Helvetica").text(rep.reportDetails, 60, y + 15, { width: 480 });
-            y += doc.heightOfString(rep.reportDetails, { width: 480 }) + 25;
-          }
-        }
-
-        // 4. Plan & Advice
-        if (rep.treatmentAdvice || rep.lifestyleAdvice || rep.advisedInvestigations?.length > 0) {
-          y = drawSectionTitle("Plan & Advice", y);
-
-          if (rep.treatmentAdvice) {
-            doc.font("Helvetica-Bold").text("Treatment Advice:", 60, y);
-            doc.font("Helvetica").text(rep.treatmentAdvice, 60, y + 15, { width: 480 });
-            y += doc.heightOfString(rep.treatmentAdvice, { width: 480 }) + 25;
-          }
-
-          if (rep.lifestyleAdvice) {
-            doc.font("Helvetica-Bold").text("Lifestyle Advice:", 60, y);
-            doc.font("Helvetica").text(rep.lifestyleAdvice, 60, y + 15, { width: 480 });
-            y += doc.heightOfString(rep.lifestyleAdvice, { width: 480 }) + 25;
-          }
-
-          if (rep.advisedInvestigations?.length > 0) {
-            doc.font("Helvetica-Bold").text("Advised Investigations:", 60, y);
-            doc.font("Helvetica").text(rep.advisedInvestigations.join("\n"), 60, y + 15, { width: 480 });
-            y += doc.heightOfString(rep.advisedInvestigations.join("\n"), { width: 480 }) + 25;
-          }
-        }
-
-        // 5. Follow-up
-        if (rep.followUpDate || rep.additionalNotes) {
-          y = drawSectionTitle("Follow-up & Notes", y);
-
-          if (rep.followUpDate) {
-            doc.font("Helvetica-Bold").text("Follow-up Date:", 60, y);
-            doc.font("Helvetica").text(new Date(rep.followUpDate).toLocaleDateString(), 160, y);
-            y += 20;
-          }
-
-          if (rep.additionalNotes) {
-            doc.font("Helvetica-Bold").text("Additional Notes:", 60, y);
-            doc.font("Helvetica").text(rep.additionalNotes, 160, y, { width: 380 });
-          }
-        }
-
-        drawFooter(4);
-      }
-
-
-
-
-
-      // ---------------------------------------------------------
-      // 📄 PAGE 5: PRESCRIPTION SUMMARY REPORT
+      // 📄 PAGE 4: PRESCRIPTION SUMMARY REPORT
       // ---------------------------------------------------------
 
       if (data.prescription?.medicines?.length > 0) {
@@ -633,12 +378,13 @@ export const generatePDF = (data, fileName) => {
           }
         }
 
-        drawFooter(5);
+        drawFooter(4);
       }
 
 
       // ---------------------------------------------------------
-      // 📄 PAGE 6: SCAN REPORTS (If any)
+      // ---------------------------------------------------------
+      // 📄 PAGE 5: SCAN REPORTS (If any)
       // ---------------------------------------------------------
       if (data.scanReport) {
         doc.addPage();
@@ -674,9 +420,174 @@ export const generatePDF = (data, fileName) => {
         y += 15;
         doc.fillColor("#000").font("Helvetica").text(scan.impression || "-", 60, y, { width: 480 });
 
-        drawFooter(6);
+        drawFooter(5);
       }
 
+      // ---------------------------------------------------------
+      // 📄 PAGE 6: GENERAL CHECKUP REPORT
+      // ---------------------------------------------------------
+      if (data.report) {
+        let currentPage = 6;
+        doc.addPage();
+        drawHeader();
+        y = 130;
+        doc.font("Helvetica-Bold").fontSize(16).fillColor(COLORS.secondary).text("General Checkup Report", 50, y);
+
+        // Date
+        doc.fontSize(10).fillColor("#000").text(`Date: ${data.date || new Date().toLocaleString()}`, 50, y + 5, { align: "right" });
+        y += 30;
+
+        // Helper to check for Page Break
+        const checkY = (currY) => {
+          if (currY > 700) {
+            drawFooter(currentPage);
+            doc.addPage();
+            currentPage++;
+            drawHeader();
+            return 130;
+          }
+          return currY;
+        };
+
+        // Patient Details Block
+        y = checkY(y);
+        y = drawSectionTitle("Patient Details", y);
+        doc.font("Helvetica-Bold").fontSize(10).fillColor("#000").text("Name:", 60, y);
+        doc.font("Helvetica").text(data.patient?.name || "-", 100, y);
+
+        doc.font("Helvetica-Bold").text("Age/Gender:", 300, y);
+        doc.font("Helvetica").text(`${data.patient?.age || "-"} / ${data.patient?.gender || "-"}`, 380, y);
+        y += 30;
+
+        const rep = data.report || {};
+
+        // 1. Vitals
+        if (rep.vitals) {
+          y = checkY(y);
+          y = drawSectionTitle("Vitals & Measurements", y);
+          const v = rep.vitals;
+
+          doc.font("Helvetica").fontSize(10).fillColor("#000");
+          const drawVital = (lbl, val, x, ly) => {
+            doc.font("Helvetica-Bold").text(lbl, x, ly);
+            doc.font("Helvetica").text(val, x, ly + 15);
+          };
+
+          // Layout based on user request visual
+          drawVital("BP", v.bloodPressure, 60, y);
+          drawVital("Pulse", v.pulseRate, 160, y);
+          drawVital("Temp", v.temperature, 260, y);
+          drawVital("O2 Level", v.oxygenLevel, 360, y);
+          drawVital("Weight", v.weight, 460, y);
+          y += 40;
+        }
+
+        // 2. Clinical Observations
+        if (rep.symptoms?.length || rep.physicalExamination || rep.clinicalFindings) {
+          y = checkY(y);
+          y = drawSectionTitle("Clinical Observations", y);
+
+          if (rep.symptoms?.length) {
+            y = checkY(y);
+            doc.font("Helvetica-Bold").text("Symptoms:", 60, y);
+            doc.font("Helvetica").text(rep.symptoms.join(", "), 60, y + 15, { width: 480 });
+            y += doc.heightOfString(rep.symptoms.join(", "), { width: 480 }) + 25;
+          }
+
+          if (rep.physicalExamination) {
+            y = checkY(y);
+            doc.font("Helvetica-Bold").text("Physical Examination:", 60, y);
+            doc.font("Helvetica").text(rep.physicalExamination, 60, y + 15, { width: 480 });
+            y += doc.heightOfString(rep.physicalExamination, { width: 480 }) + 25;
+          }
+
+          if (rep.clinicalFindings) {
+            y = checkY(y);
+            doc.font("Helvetica-Bold").text("Clinical Findings:", 60, y);
+            doc.font("Helvetica").text(rep.clinicalFindings, 60, y + 15, { width: 480 });
+            y += doc.heightOfString(rep.clinicalFindings, { width: 480 }) + 25;
+          }
+        }
+
+        // 3. Diagnosis
+        if (rep.diagnosis || rep.reportDetails) {
+          y = checkY(y);
+          y = drawSectionTitle("Diagnosis & Details", y);
+
+          if (rep.diagnosis) {
+            y = checkY(y);
+            doc.font("Helvetica-Bold").text("Final Diagnosis:", 60, y);
+            doc.font("Helvetica").text(rep.diagnosis, 160, y, { width: 380 });
+            y += 20;
+          }
+
+          if (rep.reportDetails) {
+            y = checkY(y);
+            doc.font("Helvetica-Bold").text("Report Details:", 60, y);
+            doc.font("Helvetica").text(rep.reportDetails, 60, y + 15, { width: 480 });
+            y += doc.heightOfString(rep.reportDetails, { width: 480 }) + 25;
+          }
+        }
+
+        // 4. Plan & Advice
+        if (rep.treatmentAdvice || rep.lifestyleAdvice || rep.advisedInvestigations?.length > 0) {
+          y = checkY(y);
+          y = drawSectionTitle("Plan & Advice", y);
+
+          if (rep.treatmentAdvice) {
+            y = checkY(y);
+            doc.font("Helvetica-Bold").text("Treatment Advice:", 60, y);
+            doc.font("Helvetica").text(rep.treatmentAdvice, 60, y + 15, { width: 480 });
+            y += doc.heightOfString(rep.treatmentAdvice, { width: 480 }) + 25;
+          }
+
+          if (rep.lifestyleAdvice) {
+            y = checkY(y);
+            doc.font("Helvetica-Bold").text("Lifestyle Advice:", 60, y);
+            doc.font("Helvetica").text(rep.lifestyleAdvice, 60, y + 15, { width: 480 });
+            y += doc.heightOfString(rep.lifestyleAdvice, { width: 480 }) + 25;
+          }
+
+          if (rep.advisedInvestigations?.length > 0) {
+            y = checkY(y);
+            doc.font("Helvetica-Bold").text("Advised Investigations:", 60, y);
+            doc.font("Helvetica").text(rep.advisedInvestigations.join("\n"), 60, y + 15, { width: 480 });
+            y += doc.heightOfString(rep.advisedInvestigations.join("\n"), { width: 480 }) + 25;
+          }
+        }
+
+        // 5. Follow-up
+        if (rep.followUpDate || rep.additionalNotes) {
+          y = checkY(y);
+          y = drawSectionTitle("Follow-up & Notes", y);
+
+          if (rep.followUpDate) {
+            y = checkY(y);
+            doc.font("Helvetica-Bold").text("Follow-up Date:", 60, y);
+            doc.font("Helvetica").text(new Date(rep.followUpDate).toLocaleDateString(), 160, y);
+            y += 20;
+          }
+
+          if (rep.additionalNotes) {
+            y = checkY(y);
+            doc.font("Helvetica-Bold").text("Additional Notes:", 60, y);
+            doc.font("Helvetica").text(rep.additionalNotes, 160, y, { width: 380 });
+          }
+        }
+
+        // Signature
+        y += 40;
+        y = checkY(y); // Ensure space for signature
+        doc.font("Helvetica-Bold").text("Doctor's Signature:", 400, y);
+        y += 30;
+        doc.font("Helvetica").text(`Dr. ${data.doctor?.name || "-"}`, 400, y);
+        doc.text(new Date().toLocaleDateString(), 400, y + 15);
+
+        drawFooter(currentPage);
+      }
+
+
+      // ---------------------------------------------------------
       // Finish
       doc.end();
 

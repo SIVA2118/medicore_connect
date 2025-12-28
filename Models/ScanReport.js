@@ -3,24 +3,31 @@ import mongoose from "mongoose";
 const scanReportSchema = new mongoose.Schema(
   {
     /* ================= BASIC RELATIONS ================= */
-    patient: { 
-      type: mongoose.Schema.Types.ObjectId, 
-      ref: "Patient", 
-      required: true 
+    patient: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Patient",
+      required: true
     },
 
     // Doctor who requested or reviewed the scan
-    doctor: { 
-      type: mongoose.Schema.Types.ObjectId, 
-      ref: "Doctor", 
-      default: null 
+    doctor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Doctor",
+      default: null
+    },
+
+    // Scanner assigned to perform the scan
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Scanner",
+      default: null
     },
 
     /* ================= SCAN DETAILS ================= */
     // MRI, CT, X-Ray, Blood Test, Urine Test, ECG...
-    type: { 
-      type: String, 
-      required: true 
+    type: {
+      type: String,
+      required: true
     },
 
     // Chest MRI, Brain CT, Blood Sugar Test...
@@ -30,8 +37,8 @@ const scanReportSchema = new mongoose.Schema(
     },
 
     // Brief clinical description
-    description: { 
-      type: String 
+    description: {
+      type: String
     },
 
     // Reason for scan
@@ -59,18 +66,10 @@ const scanReportSchema = new mongoose.Schema(
 
     /* ================= FILES ================= */
     // PDF report file
-    pdfFile: { 
-      type: String, 
-      default: null 
+    pdfFile: {
+      type: String,
+      default: null
     },
-
-    // Scan images (X-ray, MRI slices, etc.)
-    images: [
-      {
-        url: String,
-        public_id: String
-      }
-    ],
 
     /* ================= LAB / HOSPITAL ================= */
     labName: {
@@ -97,12 +96,6 @@ const scanReportSchema = new mongoose.Schema(
       default: 0
     },
 
-    paymentStatus: {
-      type: String,
-      enum: ["Paid", "Unpaid", "Insurance", "Free"],
-      default: "Unpaid"
-    },
-
     /* ================= AUDIT ================= */
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -118,10 +111,23 @@ const scanReportSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Doctor",
       default: null
+    },
+
+    isBilled: {
+      type: Boolean,
+      default: false
     }
   },
   { timestamps: true }
 );
+
+/* ================= INDEXES ================= */
+scanReportSchema.index({ patient: 1 });
+scanReportSchema.index({ doctor: 1 });
+scanReportSchema.index({ assignedTo: 1 });
+scanReportSchema.index({ isVerified: 1 });
+scanReportSchema.index({ resultStatus: 1 });
+scanReportSchema.index({ createdAt: -1 });
 
 export default mongoose.models.ScanReport ||
   mongoose.model("ScanReport", scanReportSchema);

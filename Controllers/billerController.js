@@ -53,6 +53,22 @@ export const getLatestPrescription = async (req, res) => {
   }
 };
 
+// -------------------------------------------------
+// 1️⃣1️⃣.5️⃣ GET LATEST REPORT FOR PATIENT
+// -------------------------------------------------
+export const getLatestReport = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const report = await Report.findOne({ patient: patientId })
+      .sort({ createdAt: -1 })
+      .limit(1);
+
+    res.status(200).json({ success: true, report });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // (Removed old function)
 export const loginBiller = async (req, res) => {
   try {

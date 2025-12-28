@@ -13,7 +13,8 @@ import {
   getBillerDoctors,
   getLatestPrescription,
   getUnbilledScanReports,
-  viewBillPDF
+  viewBillPDF,
+  getLatestReport
 } from "../Controllers/billerController.js";
 
 
@@ -96,6 +97,13 @@ router.get(
   protect,
   authorizeRoles("biller"),
   getUnbilledScanReports
+);
+
+router.get(
+  "/report/:patientId",
+  protect,
+  authorizeRoles("biller"),
+  getLatestReport
 );
 
 // -------------------------------------------------
