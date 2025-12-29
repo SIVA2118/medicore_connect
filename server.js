@@ -39,13 +39,10 @@ app.get("/", (req, res) => {
   res.send("🏥 Hospital Management API Running");
 });
 
-/* ================= LOCAL SERVER ================= */
-if (process.env.NODE_ENV !== "production") {
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => {
-    console.log(`🚀 Local server running on port ${PORT}`);
-    connectDB(); // Ensure connectDB is called here for local development startup log
-  });
-}
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  connectDB();
+});
 
 export default app;
