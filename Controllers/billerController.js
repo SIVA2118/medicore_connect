@@ -484,7 +484,7 @@ export const sendBillToPatient = async (req, res) => {
     formData.append("type", "application/pdf");
 
     const uploadRes = await axios.post(
-      `https://graph.facebook.com/v17.0/${phoneNumberId}/media`,
+      `https://graph.facebook.com/v21.0/${phoneNumberId}/media`,
       formData,
       {
         headers: {
@@ -498,14 +498,33 @@ export const sendBillToPatient = async (req, res) => {
 
     // Send PDF Message
     const sendRes = await axios.post(
-      `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`,
+      `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
       {
         messaging_product: "whatsapp",
         to: phone,
         type: "document",
         document: {
           id: mediaId,
-          caption: "Your Hospital Bill 🏥💊",
+          caption: `Dear ${bill.patient.gender === 'Male' ? 'Mr.' : 'Ms.'} ${bill.patient.name},
+
+Greetings from NS multispeciality hospital
+
+We would like to inform you that the bill for your recent medical consultation with Dr. ${bill.doctor?.name || 'Duty Doctor'} has been successfully generated. The bill includes the charges related to the consultation and has been prepared as per hospital records.
+
+For your convenience, you may kindly view and download the detailed bill in PDF format using the link provided below:
+
+View Bill (PDF):
+http://localhost:5000/api/biller/view-pdf/${bill._id}
+
+We request you to review the document and retain a copy for your records. Should you require any clarification regarding the bill or need further assistance, please do not hesitate to contact our support team.
+
+Contact Number: 9942129724
+
+Thank you for choosing our healthcare services. We wish you good health and look forward to serving you again.
+
+Warm regards,
+Billing Department
+NS multispeciality hospital`,
         },
       },
       {
@@ -522,10 +541,11 @@ export const sendBillToPatient = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ WhatsApp PDF Error:", error);
+    console.error("❌ WhatsApp PDF Error:", error?.response?.data || error.message);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error?.response?.data?.error?.message || "WhatsApp API Error",
+      details: error?.response?.data
     });
   }
 };

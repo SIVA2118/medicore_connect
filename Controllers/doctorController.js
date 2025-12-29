@@ -147,7 +147,13 @@ export const getDoctorPatients = async (req, res) => {
       .populate("reports")
       .lean();
 
-    return res.status(200).json(patients);
+    // Attach Latest Bill to each patient
+    const patientsWithBills = await Promise.all(patients.map(async (p) => {
+      const latestBill = await Bill.findOne({ patient: p._id }).sort({ createdAt: -1 }).select("pdfFile amount createdAt").lean();
+      return { ...p, latestBill };
+    }));
+
+    return res.status(200).json(patientsWithBills);
   } catch (error) {
     return res.status(500).json({
       message: "Error fetching patients",
