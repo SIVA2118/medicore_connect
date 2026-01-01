@@ -16,7 +16,8 @@ import {
     getDashboardStats,
     getAllPatientsForLab,
     getAllDoctorsForLab,
-    getAllLabs
+    getAllLabs,
+    getTestCounts
 } from "../Controllers/labController.js";
 
 const router = express.Router();
@@ -42,5 +43,6 @@ router.get("/dashboard-stats", protect, authorizeRoles("lab"), getDashboardStats
 router.get("/all-patients", protect, authorizeRoles("lab"), getAllPatientsForLab);
 router.get("/all-doctors", protect, authorizeRoles("lab"), getAllDoctorsForLab);
 router.get("/all-labs", protect, authorizeRoles("doctor", "admin"), getAllLabs);
+router.get("/test-counts", protect, authorizeRoles("lab", "doctor", "admin"), getTestCounts);
 
 export default router;

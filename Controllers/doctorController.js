@@ -6,6 +6,7 @@ import Report from "../Models/Report.js";
 import Bill from "../Models/Bill.js";
 import Prescription from "../Models/Prescription.js";
 import ScanReport from "../Models/ScanReport.js";
+import LabReport from "../Models/LabReport.js";
 
 // -------------------------------------------------------
 // Doctor Login
@@ -173,7 +174,7 @@ export const getPatientById = async (req, res) => {
     console.log("Fetching patient with Scan History:", patientId); // Debug Log & Force Restart
 
     // Fetch Patient and Full History Independently in Parallel
-    const [patient, reports, prescriptions, scanReports] = await Promise.all([
+    const [patient, reports, prescriptions, scanReports, labReports] = await Promise.all([
       Patient.findById(patientId)
         .populate("lastReport")
         .populate("assignedDoctor", "name specialization")
@@ -191,13 +192,18 @@ export const getPatientById = async (req, res) => {
         .populate("doctor", "name")
         .populate("assignedTo", "name")
         .sort({ createdAt: -1 })
+        .lean(),
+      LabReport.find({ patient: patientId })
+        .populate("doctor", "name")
+        .populate("verifiedBy", "name")
+        .sort({ testDate: -1 })
         .lean()
     ]);
 
     if (!patient)
       return res.status(404).json({ message: "Patient not found" });
 
-    res.json({ ...patient, reports, prescriptions, scanReports });
+    res.json({ ...patient, reports, prescriptions, scanReports, labReports });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error fetching patient", error });

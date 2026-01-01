@@ -301,12 +301,31 @@ export const getDashboardStats = async (req, res) => {
     }
 };
 
-/* ================= GET ALL PATIENTS (For Lab Selection) ================= */
+/* ================= GET ALL PATIENTS (Linked to Lab Reports) ================= */
 export const getAllPatientsForLab = async (req, res) => {
     try {
-        const patients = await Patient.find()
-            .select("name age gender mrn phone patientType")
+        // Find distinct patients who have lab reports
+        // We also want the latest doctor who assigned them
+        const reports = await LabReport.find()
+            .sort({ createdAt: -1 })
+            .populate("patient", "name age gender mrn phone patientType profileImage")
+            .populate("doctor", "name specialization")
             .lean();
+
+        // Unique patients map
+        const patientMap = new Map();
+
+        reports.forEach(report => {
+            if (report.patient && !patientMap.has(report.patient._id.toString())) {
+                patientMap.set(report.patient._id.toString(), {
+                    ...report.patient,
+                    assignedByDoc: report.doctor // Attach the doctor from the latest report
+                });
+            }
+        });
+
+        const patients = Array.from(patientMap.values());
+
         res.status(200).json({ success: true, patients });
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -320,6 +339,40 @@ export const getAllDoctorsForLab = async (req, res) => {
             .select("name specialization")
             .lean();
         res.status(200).json({ success: true, doctors });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
+/* ================= GET TEST COUNTS ================= */
+export const getTestCounts = async (req, res) => {
+    try {
+        const stats = await LabReport.aggregate([
+            {
+                $group: {
+                    _id: "$testName",
+                    count: { $sum: 1 },
+                    uniquePatients: { $addToSet: "$patient" } // Optional: to count unique patients if needed
+                }
+            },
+            {
+                $project: {
+                    testName: "$_id",
+                    count: 1,
+                    patientCount: { $size: "$uniquePatients" }
+                }
+            }
+        ]);
+
+        // Convert array to object for easier manual lookup
+        const testCounts = {};
+        stats.forEach(item => {
+            if (item.testName) {
+                testCounts[item.testName] = item.count; // or use item.patientCount depending on requirement
+            }
+        });
+
+        res.status(200).json({ success: true, testCounts });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
