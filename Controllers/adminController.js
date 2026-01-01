@@ -8,6 +8,7 @@ import Bill from "../Models/Bill.js";
 import ScanReport from "../Models/ScanReport.js";
 import Report from "../Models/Report.js";
 import Prescription from "../Models/Prescription.js";
+import Lab from "../Models/Lab.js";
 
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -31,6 +32,8 @@ const getModelByRole = (role) => {
       return Scanner;
     case "biller":
       return Biller;
+    case "lab":
+      return Lab;
     default:
       return null;
   }
@@ -251,6 +254,38 @@ export const createBiller = async (req, res) => {
 };
 
 /* =====================================================
+   CREATE LAB
+===================================================== */
+export const createLab = async (req, res) => {
+  try {
+    const { name, email, password, department } = req.body;
+
+    const existing = await Lab.findOne({ email });
+    if (existing)
+      return res.status(400).json({ message: "Lab user already exists" });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const lab = new Lab({
+      name,
+      email,
+      password: hashedPassword,
+      department,
+      role: "lab",
+    });
+
+    await lab.save();
+
+    res.status(201).json({
+      message: "Lab user created successfully",
+      lab,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/* =====================================================
    GET ALL USERS
 ===================================================== */
 export const getAllUsers = async (req, res) => {
@@ -260,6 +295,7 @@ export const getAllUsers = async (req, res) => {
     const receptionists = await Receptionist.find().select("-password");
     const scanners = await Scanner.find().select("-password");
     const billers = await Biller.find().select("-password");
+    const labs = await Lab.find().select("-password");
 
     res.status(200).json({
       admins,
@@ -267,6 +303,7 @@ export const getAllUsers = async (req, res) => {
       receptionists,
       scanners,
       billers,
+      labs,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -361,6 +398,7 @@ export const getDashboardStats = async (req, res) => {
       receptionistCount,
       scannerCount,
       billerCount,
+      labCount,
       totalPatients,
       totalBills,
       totalScanReports,
@@ -373,6 +411,7 @@ export const getDashboardStats = async (req, res) => {
       Receptionist.countDocuments(),
       Scanner.countDocuments(),
       Biller.countDocuments(),
+      Lab.countDocuments(),
       Patient.countDocuments(),
       Bill.countDocuments(),
       ScanReport.countDocuments(),
@@ -407,6 +446,7 @@ export const getDashboardStats = async (req, res) => {
           receptionists: receptionistCount,
           scanners: scannerCount,
           billers: billerCount,
+          labs: labCount,
         },
         clinical: {
           patients: totalPatients,

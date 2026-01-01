@@ -6,6 +6,7 @@ import {
   createDoctor,
   createScanner,
   createBiller,
+  createLab,
   getAllUsers,
   getUserById,
   updateUser,
@@ -30,6 +31,7 @@ router.post("/create-receptionist", protect, createReceptionist);
 router.post("/create-doctor", protect, createDoctor);
 router.post("/create-scanner", protect, createScanner);
 router.post("/create-biller", protect, createBiller);
+router.post("/create-lab", protect, createLab);
 
 /* ================= READ ================= */
 router.get("/all-users", protect, getAllUsers);
