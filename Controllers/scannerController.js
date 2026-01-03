@@ -271,3 +271,32 @@ export const getAllScanners = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+/* ================= SCANNER PROFILE ================= */
+export const getScannerProfile = async (req, res) => {
+  try {
+    const scanner = await Scanner.findById(req.user.id);
+    if (!scanner) return res.status(404).json({ message: "Scanner not found" });
+    res.status(200).json(scanner);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const updateScannerProfile = async (req, res) => {
+  try {
+    const updateData = { ...req.body };
+    delete updateData.email;
+    delete updateData.role;
+    delete updateData.password;
+    delete updateData._id;
+    delete updateData.__v;
+    delete updateData.createdAt;
+    delete updateData.updatedAt;
+
+    const scanner = await Scanner.findByIdAndUpdate(req.user.id, updateData, { new: true });
+    res.status(200).json(scanner);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

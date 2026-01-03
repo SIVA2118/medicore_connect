@@ -70,12 +70,16 @@ export const getDoctorProfile = async (req, res) => {
 // -------------------------------------------------------
 export const updateDoctorProfile = async (req, res) => {
   try {
-    const updateData = req.body;
+    const updateData = { ...req.body };
 
     // Block changing protected fields
     delete updateData.email;
     delete updateData.role;
     delete updateData.password;
+    delete updateData._id;
+    delete updateData.__v;
+    delete updateData.createdAt;
+    delete updateData.updatedAt;
 
     const doctor = await Doctor.findByIdAndUpdate(
       req.user.id,

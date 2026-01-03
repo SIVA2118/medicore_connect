@@ -13,12 +13,18 @@ import {
   deletePatient,
   getAllDoctors,
   getDashboardStats,
+  getProfile,
+  updateProfile,
 } from "../Controllers/receptionistController.js";
 
 const router = express.Router();
 
 /* ================= AUTH ================= */
 router.post("/login", loginReceptionist);
+
+/* ================= PROFILE ================= */
+router.get("/profile", protect, authorizeRoles("receptionist"), getProfile);
+router.put("/profile", protect, authorizeRoles("receptionist"), updateProfile);
 
 /* ================= PATIENT CRUD ================= */
 

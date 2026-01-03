@@ -32,6 +32,10 @@ const labSchema = new mongoose.Schema(
         // Additional fields can be added here
         phone: String,
         profileImage: String,
+        employeeId: String,
+        bloodGroup: String,
+        emergencyContactName: String,
+        emergencyContactPhone: String,
     },
     { timestamps: true }
 );

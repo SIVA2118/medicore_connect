@@ -804,3 +804,34 @@ export const viewBillPDF = async (req, res) => {
     res.status(500).send("Failed to load PDF");
   }
 };
+
+/* =====================================================
+   BILLER PROFILE
+===================================================== */
+export const getBillerProfile = async (req, res) => {
+  try {
+    const biller = await Biller.findById(req.user.id).select("-password");
+    if (!biller) return res.status(404).json({ message: "Biller not found" });
+    res.status(200).json(biller);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const updateBillerProfile = async (req, res) => {
+  try {
+    const updateData = { ...req.body };
+    delete updateData.email;
+    delete updateData.role;
+    delete updateData.password;
+    delete updateData._id;
+    delete updateData.__v;
+    delete updateData.createdAt;
+    delete updateData.updatedAt;
+
+    const biller = await Biller.findByIdAndUpdate(req.user.id, updateData, { new: true }).select("-password");
+    res.status(200).json(biller);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

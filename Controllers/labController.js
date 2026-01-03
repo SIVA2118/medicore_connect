@@ -66,12 +66,16 @@ export const getLabProfile = async (req, res) => {
 // -------------------------------------------------------
 export const updateLabProfile = async (req, res) => {
     try {
-        const updateData = req.body;
+        const updateData = { ...req.body };
 
         // Block changing protected fields
         delete updateData.email;
         delete updateData.role;
         delete updateData.password;
+        delete updateData._id;
+        delete updateData.__v;
+        delete updateData.createdAt;
+        delete updateData.updatedAt;
 
         const lab = await Lab.findByIdAndUpdate(
             req.user.id,
@@ -81,7 +85,7 @@ export const updateLabProfile = async (req, res) => {
 
         res.json({ message: "Profile updated", lab });
     } catch (error) {
-        res.status(500).json({ message: "Error updating profile", error });
+        res.status(500).json({ message: "Error updating profile", error: error.message });
     }
 };
 

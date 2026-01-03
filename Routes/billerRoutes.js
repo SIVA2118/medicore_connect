@@ -14,13 +14,18 @@ import {
   getLatestPrescription,
   getUnbilledScanReports,
   viewBillPDF,
-  getLatestReport
+  getLatestReport,
+  getBillerProfile,
+  updateBillerProfile
 } from "../Controllers/billerController.js";
 
 
 const router = express.Router();
 
 router.post("/login", loginBiller);
+
+router.get("/profile", protect, getBillerProfile);
+router.put("/profile", protect, updateBillerProfile);
 
 router.post(
   "/create-bill",

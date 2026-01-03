@@ -14,6 +14,8 @@ import {
   getDashboardStats,
   getAllClinicalReports,
   getPatientDetails,
+  getAdminProfile,
+  updateAdminProfile,
 } from "../Controllers/adminController.js";
 
 import { getAllPatients } from "../Controllers/receptionistController.js";
@@ -39,6 +41,8 @@ router.get("/dashboard-stats", protect, getDashboardStats);
 router.get("/clinical-reports", protect, getAllClinicalReports);
 router.get("/patient/:patientId", protect, getPatientDetails);
 router.get("/patients", protect, getAllPatients);
+router.get("/profile", protect, getAdminProfile);
+router.put("/profile", protect, updateAdminProfile);
 router.get("/:role/:id", protect, getUserById);
 
 /* ================= UPDATE ================= */

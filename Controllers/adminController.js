@@ -111,6 +111,13 @@ export const createReceptionist = async (req, res) => {
       email,
       password,
       role: "receptionist",
+      phone: req.body.phone || "",
+      address: req.body.address || "",
+      degree: req.body.degree || "",
+      employeeId: req.body.employeeId || "",
+      bloodGroup: req.body.bloodGroup || "",
+      emergencyContactName: req.body.emergencyContactName || "",
+      emergencyContactPhone: req.body.emergencyContactPhone || "",
     });
 
     await receptionist.save();
@@ -177,6 +184,10 @@ export const createDoctor = async (req, res) => {
         count: rating?.count || 0,
       },
       role: "doctor",
+      employeeId: req.body.employeeId || "",
+      bloodGroup: req.body.bloodGroup || "",
+      emergencyContactName: req.body.emergencyContactName || "",
+      emergencyContactPhone: req.body.emergencyContactPhone || "",
     });
 
     await doctor.save();
@@ -209,6 +220,10 @@ export const createScanner = async (req, res) => {
       password: hashedPassword,
       department,
       role: "scanner",
+      employeeId: req.body.employeeId || "",
+      bloodGroup: req.body.bloodGroup || "",
+      emergencyContactName: req.body.emergencyContactName || "",
+      emergencyContactPhone: req.body.emergencyContactPhone || "",
     });
 
     await scanner.save();
@@ -240,6 +255,10 @@ export const createBiller = async (req, res) => {
       email,
       password: hashedPassword,
       role: "biller",
+      employeeId: req.body.employeeId || "",
+      bloodGroup: req.body.bloodGroup || "",
+      emergencyContactName: req.body.emergencyContactName || "",
+      emergencyContactPhone: req.body.emergencyContactPhone || "",
     });
 
     await biller.save();
@@ -272,6 +291,10 @@ export const createLab = async (req, res) => {
       password: hashedPassword,
       department,
       role: "lab",
+      employeeId: req.body.employeeId || "",
+      bloodGroup: req.body.bloodGroup || "",
+      emergencyContactName: req.body.emergencyContactName || "",
+      emergencyContactPhone: req.body.emergencyContactPhone || "",
     });
 
     await lab.save();
@@ -337,7 +360,13 @@ export const getUserById = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const { role, id } = req.params;
-    const updateData = req.body;
+    const updateData = { ...req.body };
+
+    // Remove immutable fields
+    delete updateData._id;
+    delete updateData.__v;
+    delete updateData.createdAt;
+    delete updateData.updatedAt;
 
     const Model = getModelByRole(role);
     if (!Model)
@@ -544,5 +573,27 @@ export const getPatientDetails = async (req, res) => {
     res.json({ success: true, ...patient, reports, prescriptions, scanReports });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error fetching patient details", error: error.message });
+  }
+};
+
+/* =====================================================
+   ADMIN PROFILE
+===================================================== */
+export const getAdminProfile = async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.user.id).select("-password");
+    if (!admin) return res.status(404).json({ message: "Admin not found" });
+    res.status(200).json(admin);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const updateAdminProfile = async (req, res) => {
+  try {
+    const admin = await Admin.findByIdAndUpdate(req.user.id, req.body, { new: true }).select("-password");
+    res.status(200).json(admin);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };

@@ -21,7 +21,13 @@ const billerSchema = new mongoose.Schema(
     role: {
       type: String,
       default: "biller"
-    }
+    },
+    profileImage: String,
+    phone: String,
+    employeeId: String,
+    bloodGroup: String,
+    emergencyContactName: String,
+    emergencyContactPhone: String,
   },
   { timestamps: true }
 );

@@ -13,13 +13,18 @@ import {
   getDashboardStats,
   getAllPatientsForScanner,
   getAllDoctorsForScanner,
-  getAllScanners
+  getAllScanners,
+  getScannerProfile,
+  updateScannerProfile
 } from "../Controllers/scannerController.js";
 
 const router = express.Router();
 
 /* ================= AUTH ================= */
 router.post("/login", loginScanner);
+
+router.get("/profile", protect, getScannerProfile);
+router.put("/profile", protect, updateScannerProfile);
 
 /* ================= SCAN REPORT CRUD ================= */
 
