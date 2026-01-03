@@ -14,6 +14,8 @@ const doctorSchema = new mongoose.Schema(
     experience: { type: Number, default: 0 },
     qualification: String,
     registrationNumber: { type: String, unique: true },
+    degree: String,
+    address: String,
     clinicAddress: String,
     consultationFee: { type: Number, default: 0 },
 

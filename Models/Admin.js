@@ -12,6 +12,8 @@ const adminSchema = new mongoose.Schema({
   bloodGroup: String,
   emergencyContactName: String,
   emergencyContactPhone: String,
+  degree: String,
+  address: String,
 }, { timestamps: true });
 
 // 🔒 Hash password before saving
