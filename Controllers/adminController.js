@@ -591,7 +591,26 @@ export const getAdminProfile = async (req, res) => {
 
 export const updateAdminProfile = async (req, res) => {
   try {
-    const admin = await Admin.findByIdAndUpdate(req.user.id, req.body, { new: true }).select("-password");
+    const updateData = { ...req.body };
+    const { oldPassword, password } = req.body;
+
+    delete updateData.role;
+    delete updateData._id;
+    delete updateData.__v;
+    delete updateData.oldPassword;
+
+    if (password) {
+      const adminUser = await Admin.findById(req.user.id);
+      if (!adminUser) return res.status(404).json({ message: "Admin not found" });
+
+      const isMatch = await bcrypt.compare(oldPassword, adminUser.password);
+      if (!isMatch) return res.status(400).json({ message: "Old password incorrect" });
+
+      const salt = await bcrypt.genSalt(10);
+      updateData.password = await bcrypt.hash(password, salt);
+    }
+
+    const admin = await Admin.findByIdAndUpdate(req.user.id, updateData, { new: true }).select("-password");
     res.status(200).json(admin);
   } catch (err) {
     res.status(500).json({ message: err.message });
