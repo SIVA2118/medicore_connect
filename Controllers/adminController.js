@@ -313,12 +313,24 @@ export const createLab = async (req, res) => {
 ===================================================== */
 export const getAllUsers = async (req, res) => {
   try {
-    const admins = await Admin.find().select("-password");
-    const doctors = await Doctor.find().select("-password");
-    const receptionists = await Receptionist.find().select("-password");
-    const scanners = await Scanner.find().select("-password");
-    const billers = await Biller.find().select("-password");
-    const labs = await Lab.find().select("-password");
+    const { role } = req.query;
+
+    if (role) {
+      const Model = getModelByRole(role.toLowerCase());
+      if (!Model) return res.status(400).json({ message: "Invalid role" });
+      const users = await Model.find().select("-password").lean();
+      return res.status(200).json({ [role.toLowerCase() + "s"]: users });
+    }
+
+    const [admins, doctors, receptionists, scanners, billers, labs] =
+      await Promise.all([
+        Admin.find().select("-password").lean(),
+        Doctor.find().select("-password").lean(),
+        Receptionist.find().select("-password").lean(),
+        Scanner.find().select("-password").lean(),
+        Biller.find().select("-password").lean(),
+        Lab.find().select("-password").lean(),
+      ]);
 
     res.status(200).json({
       admins,
@@ -365,6 +377,7 @@ export const updateUser = async (req, res) => {
     // Remove immutable fields
     delete updateData._id;
     delete updateData.__v;
+    delete updateData.role;
     delete updateData.createdAt;
     delete updateData.updatedAt;
 
@@ -372,8 +385,10 @@ export const updateUser = async (req, res) => {
     if (!Model)
       return res.status(400).json({ message: "Invalid role" });
 
-    if (updateData.password) {
+    if (updateData.password && updateData.password.trim() !== "") {
       updateData.password = await bcrypt.hash(updateData.password, 10);
+    } else {
+      delete updateData.password;
     }
 
     const updatedUser = await Model.findByIdAndUpdate(
@@ -420,7 +435,7 @@ export const deleteUser = async (req, res) => {
 ===================================================== */
 export const getDashboardStats = async (req, res) => {
   try {
-    // Run everything in parallel for max performance
+    // Run everything in parallel for maximum performance
     const [
       adminCount,
       doctorCount,
@@ -433,7 +448,9 @@ export const getDashboardStats = async (req, res) => {
       totalScanReports,
       totalDoctorReports,
       totalPrescriptions,
-      revenueStats
+      revenueStats,
+      pendingStats,
+      recentPatients
     ] = await Promise.all([
       Admin.countDocuments(),
       Doctor.countDocuments(),
@@ -446,25 +463,20 @@ export const getDashboardStats = async (req, res) => {
       ScanReport.countDocuments(),
       Report.countDocuments(),
       Prescription.countDocuments(),
-      // Calculate revenue from paid bills
       Bill.aggregate([
         { $match: { paid: true } },
         { $group: { _id: null, total: { $sum: "$amount" } } }
-      ])
+      ]),
+      Bill.aggregate([
+        { $match: { paid: false } },
+        { $group: { _id: null, total: { $sum: "$amount" } } }
+      ]),
+      Patient.find()
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select("name mrn patientType createdAt")
+        .lean()
     ]);
-
-    // Calculate unpaid/pending amount
-    const pendingStats = await Bill.aggregate([
-      { $match: { paid: false } },
-      { $group: { _id: null, total: { $sum: "$amount" } } }
-    ]);
-
-    // Get recent activity (newest 5 patients)
-    const recentPatients = await Patient.find()
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .select("name mrn patientType createdAt")
-      .lean();
 
     res.status(200).json({
       success: true,
@@ -503,20 +515,19 @@ export const getAllClinicalReports = async (req, res) => {
   try {
     const [scanReports, doctorReports] = await Promise.all([
       ScanReport.find()
-        .populate("patient", "name mrn phone")
+        .populate("patient", "name mrn")
         .populate("doctor", "name specialization")
-        .populate("assignedTo", "name")
+        .select("scanName createdAt type resultStatus")
         .sort({ createdAt: -1 })
         .lean(),
       Report.find()
-        .populate("patient", "name mrn phone")
+        .populate("patient", "name mrn")
         .populate("doctor", "name specialization")
+        .select("reportTitle date diagnosis")
         .sort({ date: -1 })
         .lean()
     ]);
 
-    // Format them for a unified list if needed, or send separately
-    // I'll format them into a "Unified Clinical Timeline"
     const unifiedReports = [
       ...scanReports.map(sr => ({
         ...sr,
@@ -599,15 +610,19 @@ export const updateAdminProfile = async (req, res) => {
     delete updateData.__v;
     delete updateData.oldPassword;
 
-    if (password) {
+    if (password && password.trim() !== "") {
       const adminUser = await Admin.findById(req.user.id);
       if (!adminUser) return res.status(404).json({ message: "Admin not found" });
+
+      if (!oldPassword) return res.status(400).json({ message: "Old password required to set new password" });
 
       const isMatch = await bcrypt.compare(oldPassword, adminUser.password);
       if (!isMatch) return res.status(400).json({ message: "Old password incorrect" });
 
       const salt = await bcrypt.genSalt(10);
       updateData.password = await bcrypt.hash(password, salt);
+    } else {
+      delete updateData.password;
     }
 
     const admin = await Admin.findByIdAndUpdate(req.user.id, updateData, { new: true }).select("-password");

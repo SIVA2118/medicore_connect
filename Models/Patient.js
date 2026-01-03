@@ -69,6 +69,7 @@ const patientSchema = new mongoose.Schema(
 /* ================= INDEXES ================= */
 patientSchema.index({ assignedDoctor: 1 });
 patientSchema.index({ "opdDetails.lastVisitDate": -1 });
+patientSchema.index({ createdAt: -1 });
 
 export default mongoose.models.Patient ||
   mongoose.model("Patient", patientSchema);

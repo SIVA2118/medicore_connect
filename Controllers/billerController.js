@@ -514,7 +514,7 @@ We would like to inform you that the bill for your recent medical consultation w
 For your convenience, you may kindly view and download the detailed bill in PDF format using the link provided below:
 
 View Bill (PDF):
-https://medicore-connect.onrender.com/api/biller/view-pdf/${bill._id}
+http://localhost:5000/api/biller/view-pdf/${bill._id}
 
 We request you to review the document and retain a copy for your records. Should you require any clarification regarding the bill or need further assistance, please do not hesitate to contact our support team.
 

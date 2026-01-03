@@ -63,5 +63,9 @@ const billSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+/* ================= INDEXES ================= */
+billSchema.index({ paid: 1, amount: 1 });
+billSchema.index({ createdAt: -1 });
+
 export default mongoose.models.Bill ||
   mongoose.model("Bill", billSchema);
